@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title></title>
+    <link>https://www.matteomalvica.com/</link>
+    <description>Recent content on </description>
+    <generator>Hugo</generator>
+    <language>en</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Wed, 05 Jun 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://www.matteomalvica.com/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>An Introduction to Chrome Exploitation  - Maglev Edition</title>
+      <link>https://www.matteomalvica.com/blog/2024/06/05/intro-v8-exploitation-maglev/</link>
+      <pubDate>Wed, 05 Jun 2024 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2024/06/05/intro-v8-exploitation-maglev/</guid>
+      <description>Introduction Originally, I intended to write a simple note on the Maglev compiler and how to adjust V8 shellcode from Linux to Windows. But as I started, the project grew unexpectedly. I found myself diving into some prerequisites like the V8 pipeline and a root cause analysis of CVE-2023-4069, the bug we are about to explore.&#xA;What began as a brief memo soon unfolded into a deeper exploration and I hope the reader will find some benefits from these additional insights.</description>
+    </item>
+    <item>
+      <title>Bypassing Intel CET with Counterfeit Objects</title>
+      <link>https://www.matteomalvica.com/blog/2022/09/22/bypassing-intel-cet-counterfeit-objects/</link>
+      <pubDate>Thu, 22 Sep 2022 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2022/09/22/bypassing-intel-cet-counterfeit-objects/</guid>
+      <description>Since its inception in 20051, return-oriented programming (ROP) has been the predominant avenue to thwart W^X2 mitigation during memory corruption exploitation.&#xA;While Data Execution Prevention (DEP) has been engineered to block plain code injection attacks from specific memory areas, attackers have quickly adapted and instead of injecting an entire code payload, they resorted in reusing multiple code chunks from DEP-allowed memory pages, called ROP gadgets. These code chunks are taken from already existing code in the target application and chained together to resemble the desired attacker payload or to just disable DEP on a per page basis to allow the existing code payloads to run.</description>
+    </item>
+    <item>
+      <title>IRQLs Close Encounters of the Rootkit Kind</title>
+      <link>https://www.matteomalvica.com/blog/2022/01/03/irqls-rootkits/</link>
+      <pubDate>Mon, 03 Jan 2022 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2022/01/03/irqls-rootkits/</guid>
+      <description>IRQL Overview Present since the early stages of Windows NT, an Interrupt Request Level (IRQL) defines the current hardware priority at which a CPU runs at any given time. On a multi-processor architecture, each CPU can hold a different and independent IRQL value, which is stored inside the CR8 register. We should keep this in mind as we are going to build our lab examples on a quad-core system.</description>
+    </item>
+    <item>
+      <title>Work Items &amp; System Worker Threads - &#39;Practical Reverse Engineering&#39; solutions - Part 3</title>
+      <link>https://www.matteomalvica.com/blog/2021/03/10/practical-re-win-solutions-ch3-work-items/</link>
+      <pubDate>Wed, 10 Mar 2021 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2021/03/10/practical-re-win-solutions-ch3-work-items/</guid>
+      <description>Introduction This post is about &amp;lsquo;Work Items&amp;rsquo; , the third part of my &amp;lsquo;Practical Reverse Engineering&amp;rsquo; solutions series and a natural continuation to the previous one about kernel system threads. Luckily, thanks to Alex Ionescu, while researching the topic, I had the chance to get a pre-proof copy of Windows Internals 7th edition, Part 2 ahead of time so I could check my initial findings against the ones from the authors of the book.</description>
+    </item>
+    <item>
+      <title>System Threads and their elusiveness. &#39;Practical Reverse Engineering&#39; solutions - Part 2</title>
+      <link>https://www.matteomalvica.com/blog/2021/02/11/practical-re-win-solutions-ch3-system-threads/</link>
+      <pubDate>Thu, 11 Feb 2021 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2021/02/11/practical-re-win-solutions-ch3-system-threads/</guid>
+      <description>Introduction In this second blog post about Practical Revere Engineering solutions I&amp;rsquo;d like to focus on the following exercise on Page 128. This one is the first related to Asynchronous and Ad-Hoc Execution kernel objects, and specifically on how System Threads are invoked via the PsCreateSystemThread routine.&#xA;Here is the original exercise statement:&#xA;After reading some online forums, you notice some people suggesting that PsCreateSystemThread will create a thread in the context of the calling process.</description>
+    </item>
+    <item>
+      <title>Linked List in the Kernel: &#39;Practical Reverse Engineering&#39; solutions - Part 1</title>
+      <link>https://www.matteomalvica.com/blog/2021/01/01/practical-re-win-solutions-ch3-linked-lists/</link>
+      <pubDate>Fri, 01 Jan 2021 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2021/01/01/practical-re-win-solutions-ch3-linked-lists/</guid>
+      <description>Introduction Lately, I dusted off the marvelous &amp;lsquo;Practical Reverse Engineering&amp;rsquo; book by Bruce Dang &amp;amp; Co. which made me realize it would be useful to structure notes along each chapter&amp;rsquo;s exercises. Could be a valuable reference for the future, especially anything related to Chapter 3 (Windows Kernel) onwards. I decided to focus on one of the most basic and still very widespread data structure in kernel land: linked lists.</description>
+    </item>
+    <item>
+      <title>Kernel exploitation: weaponizing CVE-2020-17382 MSI Ambient Link driver</title>
+      <link>https://www.matteomalvica.com/blog/2020/09/24/weaponizing-cve-2020-17382/</link>
+      <pubDate>Thu, 24 Sep 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/09/24/weaponizing-cve-2020-17382/</guid>
+      <description>Preamble - Why are drivers still a valuable target? Kernels are, no euphemism intended, complex piece of software and the Windows OS is no exception. Being one of the toughest to scrutinize due to its lack of source code and undocumented APIs, it is now being more documented thanks to the immense effort from the research community. Regrettably, during recent times, it has also increased in complexity and its mitigation way improved.</description>
+    </item>
+    <item>
+      <title>Silencing the EDR. How to disable process, threads and image-loading detection callbacks.</title>
+      <link>https://www.matteomalvica.com/blog/2020/07/15/silencing-the-edr/</link>
+      <pubDate>Wed, 15 Jul 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/07/15/silencing-the-edr/</guid>
+      <description>Backround - TL;DR This post is about resuming the very inspiring Rui&amp;rsquo;s piece on Windows Kernel&amp;rsquo;s callbacks and taking it a little further by extending new functionalities and build an all-purpose AV/EDR runtime detection bypass. Specifically, we are going to see how Kaspersky Total Security and Windows Defender are using kernel callbacks to either inhibit us from accessing LSASS loaded module or detect malicious activities. We&amp;rsquo;ll then use our evil driver to temporarily silence any registered AV&amp;rsquo;s callbacks and restore EDR original code once we are done with our task.</description>
+    </item>
+    <item>
+      <title>Distrusting the patch: a run through my first LPE 0-day, from command injection to path traversal</title>
+      <link>https://www.matteomalvica.com/blog/2020/05/21/lpe-path-traversal/</link>
+      <pubDate>Thu, 21 May 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/05/21/lpe-path-traversal/</guid>
+      <description>Intro - TL;DR On April 29th, exploit-db published a Local Privilege Escalation (LPE) exploit for Druva InSync. Druva had by then implemented a patch on their latest InSync release, fixing the bug. However, the patch introduced an additional bug, paving the way for further exploitation and making it possible for a local low-privileged user to obtain SYSTEM level privileges. A team from Tenable Research and I concurrently discovered this new vulnerability, resulting in a new CVE (CVE-2020-5752) and exploit being published.</description>
+    </item>
+    <item>
+      <title>The universal antidebugger, x64 revamped</title>
+      <link>https://www.matteomalvica.com/blog/2020/04/10/x64-trap-flag-antidebugger/</link>
+      <pubDate>Fri, 10 Apr 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/04/10/x64-trap-flag-antidebugger/</guid>
+      <description>A single step for a debugger a giant leap for the obfuscator. When a debugger hits a breakpoint, it can perform single-stepping into the subsequent instructions by halting itself each time. To do so, it uses a specially crafted flag called Trap Flag (TF) residing at 0x8th bit position inside the EFLAGS x86 register.&#xA;If the Trap Flag is enabled, the processor then triggers an interrupt after each instruction has been executed.</description>
+    </item>
+    <item>
+      <title>heappo: a WinDBG extension for heap tracing</title>
+      <link>https://www.matteomalvica.com/blog/2020/03/24/heappo-windbg-heap-tracing/</link>
+      <pubDate>Tue, 24 Mar 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/03/24/heappo-windbg-heap-tracing/</guid>
+      <description>Preface During these days of forced quarantine time-off, I have been reviewing notes and exercises from the outstanding Corelan Advanced training I took last October at Brucon, and so I decided to work on some tooling I had in mind lately. The idea came from thisresearch by Sam Brown from F-Secure: after testing the tool I decided to port it to the latest PyKD version to support both Python3 and Python2, and can run on both x86 and x64 (tested on latest Win10 1909) I aptly named this effort Heappo and here some of its key-features and enhancements.</description>
+    </item>
+    <item>
+      <title>Uncovering Mimikatz &#39;msv&#39; and collecting credentials through PyKD</title>
+      <link>https://www.matteomalvica.com/blog/2020/01/20/mimikatz-lsass-dump-windg-pykd/</link>
+      <pubDate>Mon, 20 Jan 2020 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2020/01/20/mimikatz-lsass-dump-windg-pykd/</guid>
+      <description>Preface All the value that a tool such as mimikatz provides in extrapolating Windows credential’s from memory resides in every pentester’s heart and guts. It is so resilient and flexible that it has quickly become the de facto standard in credential dumping and we cannot thank Benjamin Delpy enough for the immense quality work that has been done in recent years.&#xA;Since the code is open source , I recently decided to take up the not-so-leisurely hobby of understanding the mimikatz codebase.</description>
+    </item>
+    <item>
+      <title>Evading WinDefender ATP credential-theft: a hit after a hit-and-miss start</title>
+      <link>https://www.matteomalvica.com/blog/2019/12/02/win-defender-atp-cred-bypass/</link>
+      <pubDate>Mon, 02 Dec 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/12/02/win-defender-atp-cred-bypass/</guid>
+      <description>Intro Recently, I became rather intrigued after reading this article from MSTIC about how Windows Defender Advanced Threat Protection (WDATP) is supposed to detect credential dumping by statistically probing the amount of data read from the LSASS process.&#xA;A little background is first necessary, though: on a host guarded by WDATP, when a standard credential-dumper such as mimikatz is executed, it should trigger an alert like the following one.</description>
+    </item>
+    <item>
+      <title>Monitoring linux system-calls the right way</title>
+      <link>https://www.matteomalvica.com/blog/2019/11/18/linux-syscall-monitoring/</link>
+      <pubDate>Mon, 18 Nov 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/11/18/linux-syscall-monitoring/</guid>
+      <description>This ten-year-old vulnerability found by Chris Evans should remind us once more how, on modern linux systems, is important to take care of how we do security monitoring of software and user behaviour on modern linux systems.&#xA;Here&amp;rsquo;s the knot. This simple assembly code spwans /bin/sh via execve and then exit.&#xA;BITS 64 global _start section .text _start: jmp short jump main: pop rbx ; stack needs x64 register [rbx]- ; string address offset fits into 32 bit though xor eax, eax mov ecx, eax mov edx, eax mov al, 0xb int 0x80 ; execve_syscall xor eax,eax inc eax int 0x80 ; exit_syscall jump: call main message db &amp;#34;/bin/sh&amp;#34; If we compile it as an x64 ELF binary we can start noticing a few shenanigans.</description>
+    </item>
+    <item>
+      <title></title>
+      <link>https://www.matteomalvica.com/whoami/</link>
+      <pubDate>Tue, 09 Jul 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/whoami/</guid>
+      <description>Matteo uf0 Malvica&#xA;I am currently focusing on the following topics:&#xA;Vulnerability Research Exploit Development Reverse Engineering OS Internals Today, I am working as a Senior Content Developer and Security Researcher at OffSec.&#xA;I have presented my research at various conferences, including BlackHat EU, HackCon, Sikkerhetsfestivalen, and EuskalHack.</description>
+    </item>
+    <item>
+      <title>hacks &amp; tools</title>
+      <link>https://www.matteomalvica.com/hacks/</link>
+      <pubDate>Tue, 09 Jul 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/hacks/</guid>
+      <description>Exploits &amp;amp; CVEs Metasploit modules &amp;amp; payloads Linux Command Shell, Reverse TCP Inline (IPv6)&#xA;Splunk Custom App Remote Code Execution&#xA;Shellcodes Linux/x86 - IPv6 TCP bind tcp shell&#xA;CVEs CVE-2020-5752 | Druva - inSync Windows Client 6.6.3 - Path Traversal LPE&#xA;CVE-2020-10680 | Polycom - RealPresence Desktop - Windows Client - Local BoF&#xA;CVE-2020-2035 | Palo Alto Networks - PAN-OS: URL filtering policy is not enforced on TLS handshakes for decrypted HTTPS sessions</description>
+    </item>
+    <item>
+      <title>Windows Kernel Shellcodes - a compendium</title>
+      <link>https://www.matteomalvica.com/blog/2019/07/06/windows-kernel-shellcode/</link>
+      <pubDate>Sat, 06 Jul 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/07/06/windows-kernel-shellcode/</guid>
+      <description>Intro As opposed to the multi-purpose windows&amp;rsquo; userland shellcode, kernel ones merely try to elevate privileges and obtain an NT\SYSTEM status. There are several ways to accomplish this, and we are going to explore some of the different scenarios.&#xA;Most of the following ideas have been inspired by Morten Schenk and Cesar Cerrudo excellent works, which I have then gathered and readapted to the latest Win10 version.&#xA;Before jumping too quickly into shellcoding, we want would like to setup a comfortable and easy-to-fire shellcode loader on our system.</description>
+    </item>
+    <item>
+      <title>Converting win shellcode from msfvenom to FASM</title>
+      <link>https://www.matteomalvica.com/blog/2019/06/13/converting-win-shellcode-from-msfvenom-to-fasm/</link>
+      <pubDate>Thu, 13 Jun 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/06/13/converting-win-shellcode-from-msfvenom-to-fasm/</guid>
+      <description>Intro During the last couple of weeks I started focusing more and more on windows internals and the way shellcode is crafted for the different windows platforms. There are many good windows shellcodes examples available out for grabs on the internet, but some of them are written in MASM or others are not so keen having a small memory footprint. Hence, I decided to focus on probably the best shellcode actively mantained repository: msfvenom.</description>
+    </item>
+    <item>
+      <title>Injecting shellcode into x64 ELF binaries</title>
+      <link>https://www.matteomalvica.com/blog/2019/05/18/injecting-shellcode-into-x64-elf-binaries/</link>
+      <pubDate>Sat, 18 May 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/05/18/injecting-shellcode-into-x64-elf-binaries/</guid>
+      <description>Intro Recently, I have decided to tackle another challenge from the Practical Binary Analysis book, which is the latest one from Chapter 7.&#xA;It asks the reader to create a parasite binary from a legitimate one. I have picked ps, the process snapshot utility, where I have implanted a bind-shell as a child process.&#xA;DISCLAIMER : The following PoC will work only on a non-PIE binary due to the hardcoded entry-point address</description>
+    </item>
+    <item>
+      <title>Baffling objdump</title>
+      <link>https://www.matteomalvica.com/blog/2019/04/17/baffling-objdump/</link>
+      <pubDate>Wed, 17 Apr 2019 00:00:00 +0000</pubDate>
+      <guid>https://www.matteomalvica.com/blog/2019/04/17/baffling-objdump/</guid>
+      <description>objdump is one of the most widley adopted linear disassembler, which often gives a significant help during initial binary analysis. A linear disassmbling algorithm, as opposed to a recursive one, is faster but also more prone to errors, as it only weeps through the file sections one instruction at a time, instead of inspecting every conditional statement.&#xA;Here, I would like to give a simple demo of how easily objdump can be confused, by filling the binary with instructions in the rdata section and strings in the text section.</description>
+    </item>
+  </channel>
+</rss>
