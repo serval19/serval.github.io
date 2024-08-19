@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author"
+    content="">
+<meta name="description"
+    content="Introduction In this second blog post about Practical Revere Engineering solutions I&amp;rsquo;d like to focus on the following exercise on Page 128. This one is the first related to Asynchronous and Ad-Hoc Execution kernel objects, and specifically on how System Threads are invoked via the PsCreateSystemThread routine.
+Here is the original exercise statement:
+After reading some online forums, you notice some people suggesting that PsCreateSystemThread will create a thread in the context of the calling process." />
+<meta name="keywords" content="" />
+<meta name="robots" content="noodp" />
+<title>
+    System Threads and their elusiveness. &#39;Practical Reverse Engineering&#39; solutions - Part 2 ::   — uf0
+</title>
+	<link rel="canonical" href="https://www.matteomalvica.com/blog/2021/02/11/practical-re-win-solutions-ch3-system-threads.html" />
+<link href="../../../../ajax/libs/flag-icon-css/3.2.1/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+<link rel="stylesheet" href="../../../../main.min.ff759f2a796cae22d12f15d9ed52bb682ec25fbef0e2d95a2ae9e53f30536694.css">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../../../../favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../../../../favicon-16x16.png">
+<link rel="manifest" href="https://www.matteomalvica.com/site.webmanifest">
+<link rel="mask-icon" href="../../../../safari-pinned-tab.svg" color="#252627">
+<link rel="shortcut icon" href="../../../../favicon.ico">
+<meta name="theme-color" content="#252627">
+  <meta itemprop="name" content="System Threads and their elusiveness. &#39;Practical Reverse Engineering&#39; solutions - Part 2">
+  <meta itemprop="description" content="Chapter 3 - page 128">
+  <meta itemprop="datePublished" content="2021-02-11T00:00:00+00:00">
+  <meta itemprop="dateModified" content="2021-02-11T00:00:00+00:00">
+  <meta itemprop="wordCount" content="1769">
+  <meta itemprop="image" content="https://www.matteomalvica.com/img/PRE/PRE2.jpg">
+  <meta itemprop="keywords" content="PracticalReverseEngineering,Solutions,Windows,Kernel,System,Threads">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://www.matteomalvica.com/img/PRE/PRE2.jpg">
+  <meta name="twitter:title" content="System Threads and their elusiveness. &#39;Practical Reverse Engineering&#39; solutions - Part 2">
+  <meta name="twitter:description" content="Chapter 3 - page 128">
+<meta property="article:published_time" content="2021-02-11 00:00:00 &#43;0000 UTC" />
+    </head>
+    <body class="dark-theme">
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="../../../../index.html" style="text-decoration: none;">
+    <div class="logo">
+            <span class="logo__mark">></span>
+            <span class="logo__text">/home/uf0</span>
+            <span class="logo__cursor"></span>
+    </div>
+</a>
+        <span class="header__right">
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="../../../../blog.html">blog</a></li><li><a href="../../../../whoami.html">whoami</a></li>
+    </ul>
+</nav>
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-18TCRTW8CL"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-18TCRTW8CL');
+        }
+      </script>
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-RE0LE7QK5X"></script>
+                <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-RE0LE7QK5X');
+                </script>
+            <span class="theme-toggle"><svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+</span>
+        </span>
+    </span>
+</header>
+            <div class="content">
+    <main class="post">
+        <div class="post-info">
+            </p>
+        </div>
+        <article>
+            <h1 class="post-title"><a href="../../../../blog/2021/02/11/practical-re-win-solutions-ch3-system-threads.html">System Threads and their elusiveness. &lsquo;Practical Reverse Engineering&rsquo; solutions - Part 2</a></h1>
+            <div class="post-content">
+  <img src="../../../../img/PRE/PRE2.jpg"  alt="PRE"  class="center"  />
+<h2 id="introduction">Introduction</h2>
+<p>In this second blog post about Practical Revere Engineering solutions I&rsquo;d like to focus on the following exercise on Page 128.
+This one is the first related to <strong>Asynchronous and Ad-Hoc Execution</strong> kernel objects,  and specifically on how System Threads are invoked via the <code>PsCreateSystemThread</code> routine.</p>
+<p>Here is the original exercise statement:</p>
+<blockquote>
+<p>After reading some online forums, you notice some people suggesting that PsCreateSystemThread will create a thread in the context of the calling process. In other words, they are suggesting that if you call PsCreateSystemThread in an IOCTL handler, the new thread will be in the context of the requesting user-mode application. Assess the validity of this statement by writing a driver that calls PsCreateSystemThread in the IOCTL handler. Next, experiment with a non-NULL ProcessHandle and determine if the context differs.</p>
+</blockquote>
+<p>Before jumping into answering the actual exercise, we should get acquainted with all the bits and pieces that make up the current state of affairs.</p>
+<h2 id="system-process-and-system-threads">System Process and System Threads</h2>
+<p>Process ID 4, also known as <em>System Process</em> is a container for kernel-mode system threads: these threads have similar ETHREAD/KTHREAD attributes to a userland threads but their code runs only in system address space (that is, either <code>ntoskrnl</code> or a device driver).
+These threads are employed by the Windows kernel as part of its submodules like memory management, I/O management, Security and so forth.</p>
+<p>As a rule, system threads live and die just within the System process. However a driver can spawn system threads in an arbitrary process context: this is done in case a thread requires userland address space interaction or, in general, access to another process resource.</p>
+<h2 id="creating-system-threads">Creating System Threads</h2>
+<p>Going back to the original exercise&rsquo;s statement from the book, it also suggests to crawl forums containing discussions on System Threads inside the IOCTL handler&rsquo;s context.
+A first hit is from <a href="https://community.osr.com/discussion/123558/pscreatesystemthread">OSR</a> which looks exactly the one we are after.</p>
+<p>Kernel device drivers can create system threads by using either <code>PsCreateSystemThread</code> or, starting from Windows 8,<code>IoCreateSystemThread</code> and no matter what routine we are using to spawn it, the driver must terminate the thread via <code>PsTerminateSystemThread</code>.</p>
+<p>Since the exercise explicitly asks for <em>PsCreateSystemThread</em> we are not going to spend any extra energy on the second API.</p>
+<p>Here&rsquo;s the <em>PsCreateSystemThread</em> syntax breakdown from MSDN:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">NTSTATUS</span> <span class="nf">PsCreateSystemThread</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl"><span class="n">_Out_</span> <span class="n">PHANDLE</span> <span class="n">ThreadHandle</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="n">_In_</span> <span class="n">ULONG</span> <span class="n">DesiredAccess</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="n">_In_opt_</span> <span class="n">POBJECT_ATTRIBUTES</span> <span class="n">ObjectAttributes</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl"><span class="n">_In_opt_</span> <span class="n">HANDLE</span> <span class="n">ProcessHandle</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="n">_Out_opt_</span> <span class="n">PCLIENT_ID</span> <span class="n">ClientId</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl"><span class="n">_In_</span> <span class="n">PKSTART_ROUTINE</span> <span class="n">StartRoutine</span><span class="p">,</span> <span class="n">S</span>
+</span></span><span class="line"><span class="cl"><span class="n">_In_opt_</span> <span class="n">PVOID</span> <span class="n">StartContext</span><span class="p">);</span>
+</span></span></code></pre></div><p>The fourth argument, <code>ProcessHandle</code> is of great interest to us as we&rsquo;ll find out shortly.</p>
+<p>MSDN hints:</p>
+<blockquote>
+<p>If this parameter is not supplied, the thread will be created in the initial system process. This value should be NULL for a driver-created thread. Use the NtCurrentProcess macro, defined in Ntddk.h, to specify the current process.</p>
+</blockquote>
+<p>Enough with these premises, though. It&rsquo;s now time to take a closer look at IDA and get down to it.
+It immediately appears that <code>PsCreateSystemThread</code> is just a wrapper for <code>PsCreateSystemThreadEx</code>, so we are going to focus only on the latter.</p>
+<p>Quite at the beginning of this function, the <code>ProcessHandle</code> parameter held in <code>r9</code> is then saved into <code>rbx</code> and verified to be non-null afterwards.</p>
+<p><img alt="ida1" src="../../../../img/PRE/ida5.png"></p>
+<p>From the above snippet, if <em>ProcessHandle</em> (<code>rbx</code>) is null (left branch), <code>PspSystemPartition</code> offset 0x68 is dereferenced and saved into <code>rbx</code> which, at this point, acquires new significance as it will be used as <em>ProcessPointer</em> parameter when calling <code>PspCreateThread</code>.</p>
+<p>But now the question is, what&rsquo;s really at offset 0x68 of PspSystemPartition?</p>
+<p>It looks like <em>PspSystemPartition</em> is an opaque structure, but at first glance it seems that this offset is used by kernel functions to get a hold of the System&rsquo;s EPROCESS value.</p>
+<p>Let&rsquo;s verify this assumption:</p>
+<pre tabindex="0"><code>2: kd&gt; dq poi(nt!PspSystemPartition)+68 L1
+ffffb18c`a0a96d48  ffffb18c`a0a5f040
+2: kd&gt; !process 0 0 system
+PROCESS ffffb18ca0a5f040
+    SessionId: none  Cid: 0004    Peb: 00000000  ParentCid: 0000
+    DirBase: 001ad000  ObjectTable: ffffd702008245c0  HandleCount: 2583.
+    Image: System
+</code></pre><p>Cool, the two EPROCESS addresses do indeed match.</p>
+<p>Moving our attention to the right branch, we can notice that when a non-null ProcessHandle is given,<code>ObpReferenceObjectByHandleWithTag</code> is invoked with the original caller process handle as an argument and it will be  fetch the kernel object associated with that handle.
+The function will return an <code>Object</code> of EPROCESS type, which will be used as a process context when invoking <em>PspCreateThread</em>.</p>
+<p>To summarize, if we we provide a null ProcessHandle, the value of System EPROCESS will be passed when calling <em>PspCreateThread</em>, else will be used the one obtained after having queried <em>ObpReferenceObjectByHandleWithTag</em>.</p>
+<h2 id="building-the-poc-driver">Building the PoC driver</h2>
+<p>Armed with this information we can now write a quick PoC driver that creates two system threads: one in the System process&rsquo; context and one in the context of the calling IOCTL process.</p>
+<p>After having created the usual device driver and the symbolic link through <code>IoCreateDevice</code> and <code>IoCreateSymbolicLink</code> respectively, we move on and define the following Major Functions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Cpp" data-lang="Cpp"><span class="line"><span class="cl">	<span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_CREATE</span><span class="p">]</span> <span class="o">=</span> <span class="n">SysThreadCreateClose</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_CLOSE</span><span class="p">]</span> <span class="o">=</span> <span class="n">SysThreadCreateClose</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_DEVICE_CONTROL</span><span class="p">]</span> <span class="o">=</span> <span class="n">SysThreadDeviceControl</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">DriverUnload</span> <span class="o">=</span> <span class="n">SysThreadUnload</span><span class="p">;</span>
+</span></span></code></pre></div><p>The hero of the story is - it goes without saying - the function associated with the <code>IRP_MJ_DEVICE_CONTROL</code> routine, that is <code>SysThreadDeviceControl</code> in our instance (error checks omitted).</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">NTSTATUS</span> <span class="nf">SysThreadDeviceControl</span><span class="p">(</span><span class="n">PDEVICE_OBJECT</span> <span class="n">deviceObject</span><span class="p">,</span><span class="n">PIRP</span> <span class="n">Irp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">irpSp</span> <span class="o">=</span> <span class="n">IoGetCurrentIrpStackLocation</span><span class="p">(</span><span class="n">Irp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">(</span><span class="n">irpSp</span><span class="o">-&gt;</span><span class="n">Parameters</span><span class="p">.</span><span class="n">DeviceIoControl</span><span class="p">.</span><span class="n">IoControlCode</span> <span class="o">==</span> <span class="n">IOCTL_SYSTHREAD_METHOD_BUFFERED</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="c1">// NULL ProcessHandle = System Thread created in SYSTEM(4) process context.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="n">threadStatus</span> <span class="o">=</span> <span class="n">PsCreateSystemThread</span><span class="p">(</span><span class="o">&</span><span class="n">hThreadA</span><span class="p">,</span><span class="n">THREAD_ALL_ACCESS</span><span class="p">,</span><span class="nb">NULL</span><span class="p">,</span><span class="nb">NULL</span><span class="p">,</span><span class="nb">NULL</span><span class="p">,(</span><span class="n">PKSTART_ROUTINE</span><span class="p">)</span><span class="n">SysThreadStartSystem</span><span class="p">,</span><span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">ZwClose</span><span class="p">(</span><span class="n">hThreadA</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="c1">// ProccessHandle of caller process retrieved via NtCurrentProcess() macro = System Thread in Caller Process context.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="n">threadStatus</span> <span class="o">=</span> <span class="n">PsCreateSystemThread</span><span class="p">(</span><span class="o">&</span><span class="n">hThreadB</span><span class="p">,</span><span class="n">THREAD_ALL_ACCESS</span><span class="p">,</span><span class="nb">NULL</span><span class="p">,</span><span class="n">NtCurrentProcess</span><span class="p">(),</span><span class="nb">NULL</span><span class="p">,(</span><span class="n">PKSTART_ROUTINE</span><span class="p">)</span><span class="n">SysThreadStartIOCTLHandler</span><span class="p">,</span><span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">ZwClose</span><span class="p">(</span><span class="n">hThreadB</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">		<span class="n">Irp</span><span class="o">-&gt;</span><span class="n">IoStatus</span><span class="p">.</span><span class="n">Status</span> <span class="o">=</span> <span class="n">status</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">		<span class="n">Irp</span><span class="o">-&gt;</span><span class="n">IoStatus</span><span class="p">.</span><span class="n">Information</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="n">IoCompleteRequest</span><span class="p">(</span><span class="n">Irp</span><span class="p">,</span> <span class="n">IO_NO_INCREMENT</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="n">status</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>Once the current <em>IRP</em> is processed and the IOCTL matches the one defined in <code>IOCTL_SYSTHREAD_METHOD_BUFFERED</code>, we assume that the user application is willing to interact with this very routine.
+We then call <code>PsCreateSystemThread</code> and start a first thread with a NULL ProcessHandle (fourth parameter) and <code>SysThreadStartSystem</code> as start routine.
+Immediately afterward, we launch another thread in the userland IOCTL context by using the <code>NtCurrentProcess()</code> macro to obtain the ProcessHandle parameter and <code>SysThreadStartIOCTLHandler</code> as start routine.
+Note that we have to use the <code>Nt</code> (and not the <code>Zw</code>) version of this macro since the parameters are coming from a user mode process.</p>
+<p>Apart from facilitating the debugging process, the two thread StartRoutines are not doing that much.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">VOID</span> <span class="nf">SysThreadStartSystem</span><span class="p">(</span><span class="n">PVOID</span> <span class="n">StartContext</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">	<span class="n">UNREFERENCED_PARAMETER</span><span class="p">(</span><span class="n">StartContext</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">DbgPrint</span><span class="p">(</span><span class="s">&#34;SysThreadStartSystem has been called.</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PsTerminateSystemThread</span><span class="p">(</span><span class="n">STATUS_SUCCESS</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">VOID</span> <span class="nf">SysThreadStartIOCTLHandler</span><span class="p">(</span><span class="n">PVOID</span> <span class="n">StartContext</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="n">UNREFERENCED_PARAMETER</span><span class="p">(</span><span class="n">StartContext</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">DbgPrint</span><span class="p">(</span><span class="s">&#34;SysThreadStartIOCTLHandler has been called.</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PsTerminateSystemThread</span><span class="p">(</span><span class="n">STATUS_SUCCESS</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>That&rsquo;s about the gist of it and  - sure enough - we are going to need also the userland app in order to trigger the two <code>StartThread</code> functions (for the entire project check the link at the end of the post).</p>
+<h2 id="validating-assumptions">Validating assumptions</h2>
+<p>Ok, since we know that the truth lies only in the debugger (as oppsoed to the source code) we want to validate our theories.
+We so place two breakpoints at both &lsquo;ThreadStart&rsquo; functions:</p>
+<pre tabindex="0"><code>0: kd&gt; x SysThreadHandler!*ThreadStart*
+fffff802`16d81350 SysThreadHandler!SysThreadStartSystem (void *)
+fffff802`16d81320 SysThreadHandler!SysThreadStartIOCTLHandler (void *)
+0: kd&gt;  bp SysThreadHandler!SysThreadStartSystem
+0: kd&gt;  bp SysThreadHandler!SysThreadStartIOCTLHandler
+</code></pre><p>As soon as we fire the user application we are going to hit the first function&rsquo;s breakpoint:</p>
+<pre tabindex="0"><code>Breakpoint 0 hit
+SysThreadHandler!SysThreadStartSystem:
+fffff802`16d81350 48894c2408      mov     qword ptr [rsp+8],rcx
+0: kd&gt; !process -1 0
+PROCESS ffffb18ca0a5f040
+    SessionId: none  Cid: 0004    Peb: 00000000  ParentCid: 0000
+    DirBase: 001ad000  ObjectTable: ffffd702008245c0  HandleCount: 2815.
+    Image: System
+</code></pre><p>And by looking at the<code>Cid</code> we can tell is the well-known System (4) process id.</p>
+<p>Continuing execution&hellip;</p>
+<pre tabindex="0"><code>Breakpoint 1 hit
+SysThreadHandler!SysThreadStartIOCTLHandler:
+2: kd&gt; !process -1 0
+PROCESS ffffb18ca9ec5340
+    SessionId: 1  Cid: 23f8    Peb: a651337000  ParentCid: 1ff8
+    DirBase: 127e5f000  ObjectTable: ffffd7021b4185c0  HandleCount:  34.
+    Image: UserApp.exe
+</code></pre><p>&hellip;. we hit the second breakpoint and confirm that the second kernel thread belongs to the userapp process.</p>
+<h2 id="mapping-calls-to-pscreatesystemthread-dynamic-vs-static">Mapping calls to PsCreateSystemThread: dynamic vs static</h2>
+<p>The second part of this exercise is asking for:</p>
+<blockquote>
+<p>Cross-reference as many calls to PsCreateSystemThread as possible in the kernel image. Determine whether any of them pass a non-NULL
+ProcessHandle parameter. Explain the purpose of these routines. Repeat the exercise for as many functions as possible.</p>
+</blockquote>
+<p>As we already mentioned, the reason for creating a system-thread in a non-system process context is to be able to interact with userland address space.
+The only requirement is to pass a valid ProcessHandle so we craft a conditional breakpoint that checks that <code>r9</code> (fourth argument) is non-null.</p>
+<pre tabindex="0"><code>bp nt!PsCreateSystemThread &#34;.if @r9 != 0x0  {.printf \&#34;Found NON-NULL call to PsCreateSystemThread with Process Handle value of 0x%p \\n\&#34;,r9} .else {gc}&#34;
+</code></pre><p>And verify who the handle belongs to as soon as we have a hit.</p>
+<pre tabindex="0"><code>Found NON-NULL call to PsCreateSystemThread with Process Handle value of 0xffffffff80000fd0 
+nt!PsCreateSystemThread:
+fffff802`0dc55040 4c8bdc          mov     r11,rsp
+2: kd&gt; !handle @r9
+PROCESS ffffb18ca3e5b080
+    SessionId: 0  Cid: 0368    Peb: bfe1bac000  ParentCid: 02d0
+    DirBase: 20df61000  ObjectTable: ffffd702045793c0  HandleCount: 1301.
+    Image: svchost.exe
+Kernel handle table at ffffd702008245c0 with 3102 entries in use
+80000fd0: Object: ffffb18ca5a6c040  GrantedAccess: 001fffff (Protected) Entry: ffffd70204a35f40
+Object: ffffb18ca5a6c040  Type: (ffffb18ca0a957a0) Process
+    ObjectHeader: ffffb18ca5a6c010 (new version)
+        HandleCount: 1  PointerCount: 64395
+</code></pre><p>We can further check call stack to pinpoint the originating function.</p>
+<pre tabindex="0"><code>2: kd&gt; k
+ # Child-SP          RetAddr           Call Site
+00 ffffea0d`059a99b8 fffff802`0d8c9bdc nt!PsCreateSystemThread
+01 ffffea0d`059a99c0 fffff802`0d8c99cd nt!SmKmStoreHelperStart+0x3c
+02 ffffea0d`059a9a10 fffff802`0dc54ce8 nt!SMKM_STORE&lt;SM_TRAITS&gt;::SmStStart+0x251
+03 ffffea0d`059a9ad0 fffff802`0dc554cc nt!SmProcessCreateRequest+0x228
+04 ffffea0d`059a9c30 fffff802`0dc55550 nt!SmpDirtyStoreCreate+0xd4
+05 ffffea0d`059a9cf0 fffff802`0dcf65d9 nt!SmpKeyedStoreCreate+0x4c
+06 ffffea0d`059a9d30 fffff802`0dcf5231 nt!SmProcessCreateNotification+0x45
+07 ffffea0d`059a9d60 fffff802`0dc6c477 nt!PspAllocateProcess+0x1ba1
+08 ffffea0d`059aa2d0 fffff802`0da071b5 nt!NtCreateUserProcess+0xa17
+09 ffffea0d`059aaa90 00007ffd`1512d8a4 nt!KiSystemServiceCopyEnd+0x25
+0a 000000bf`e1cfcbc8 00007ffd`12bb2d2c 0x00007ffd`1512d8a4
+0b 000000bf`e1cfcbd0 00000000`00000000 0x00007ffd`12bb2d2c
+</code></pre><p>In this case the system thread has been created by the Store Manager sub component, within the context of <code>svchost.exe</code> service process.</p>
+<p>This approach is obviously time-consuming and error prone as it is going to depend on external dynamic events to map each and every function call.
+To map all the call we could use IdaPython and statically fetch all the cross references by filtering out any non-null value of <code>ProcessHandle</code>, for example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Python" data-lang="Python"><span class="line"><span class="cl"><span class="n">ps1</span>  <span class="o">=</span> <span class="n">idc</span><span class="o">.</span><span class="n">get_name_ea_simple</span><span class="p">(</span><span class="s2">&#34;PsCreateSystemThread&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ps2</span> <span class="o">=</span> <span class="n">idc</span><span class="o">.</span><span class="n">get_name_ea_simple</span><span class="p">(</span><span class="s2">&#34;PsCreateSystemThreadEx&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">filterXrf</span><span class="p">(</span><span class="n">targetFunction</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="n">addr</span> <span class="ow">in</span> <span class="n">CodeRefsTo</span><span class="p">(</span><span class="n">targetFunction</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">		<span class="n">funcName</span>  <span class="o">=</span> <span class="n">get_func_name</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="n">func</span> <span class="o">=</span> <span class="n">ida_funcs</span><span class="o">.</span><span class="n">get_func</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="n">funcStart</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">start_ea</span>
+</span></span><span class="line"><span class="cl">		<span class="n">funcEnd</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">end_ea</span>
+</span></span><span class="line"><span class="cl">		<span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Calling function: </span><span class="si">%s</span><span class="s2"> at 0x</span><span class="si">%x</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> - function start 0x</span><span class="si">%x</span><span class="s2"> &#34;</span> <span class="o">%</span> <span class="p">(</span><span class="n">funcName</span><span class="p">,</span><span class="n">addr</span><span class="p">,</span> <span class="n">idc</span><span class="o">.</span><span class="n">generate_disasm_line</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">funcStart</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">		<span class="n">cur_addr</span>  <span class="o">=</span> <span class="n">addr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">while</span><span class="p">(</span><span class="n">cur_addr</span> <span class="o">&gt;</span> <span class="n">funcStart</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">			<span class="n">cur_asm</span> <span class="o">=</span> <span class="n">idc</span><span class="o">.</span><span class="n">generate_disasm_line</span><span class="p">(</span><span class="n">cur_addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="s2">&#34;xor     r9d, r9d&#34;</span> <span class="ow">in</span> <span class="n">cur_asm</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">				<span class="k">break</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="s2">&#34;r9&#34;</span> <span class="ow">in</span> <span class="n">cur_asm</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">				<span class="nb">print</span><span class="p">(</span><span class="s2">&#34;0x</span><span class="si">%x</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&#34;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cur_addr</span><span class="p">,</span> <span class="n">idc</span><span class="o">.</span><span class="n">generate_disasm_line</span><span class="p">(</span><span class="n">cur_addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">				<span class="k">break</span>
+</span></span><span class="line"><span class="cl">			<span class="n">cur_addr</span> <span class="o">=</span> <span class="n">idc</span><span class="o">.</span><span class="n">prev_head</span><span class="p">(</span><span class="n">cur_addr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">filterXrf</span><span class="p">(</span><span class="n">ps1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">filterXrf</span><span class="p">(</span><span class="n">ps2</span><span class="p">)</span>
+</span></span></code></pre></div><p>If we run it in IDA we can spot a few calls from Cache and Store manager.</p>
+<pre tabindex="0"><code>Calling function: SmKmStoreHelperStart
+0x1402c9bbf mov     r9, rdx; ProcessHandle
+Calling function: ?SmStWorkerThreadStartThread@?$SMKM_STORE@USM_TRAITS@@@@SAJPEAU1@PEAXP6AX1@ZPEAPEAU_ETHREAD@@@Z
+0x1402c9c5f mov     r9, rdx; ProcessHandle
+Calling function: ?SmCompressCtxCreateThread@?$SMKM_STORE_MGR@USM_TRAITS@@@@SAJPEAU_SM_COMPRESS_CONTEXT@1@PEAU1@K@Z
+0x14032203e mov     r9, [rdi+740h]; ProcessHandle
+Calling function: CcInitializePartition
+0x1403bdb71 mov     r9, [rbp+70h]; ProcessHandle
+Calling function: CcInitializeAsyncRead
+0x1403be10b mov     r9, [rax+70h]; ProcessHandle
+</code></pre><p>Even though win32kfull.sys imports PsCreateSystemThread I could not spot any intermodular calls during debugging: this is - guesswork on steroids here - due to the recent modifications on desktop heaps after Redstone 5.</p>
+<p>Kudos to Felix Schwyzer for the inspirational blog post on this subject.</p>
+<p>The complete project can be found <a href="https://github.com/uf0o/practical_reverse_engineering/tree/main/chapter3/page128">here</a>.</p>
+            </div>
+        </article>
+        <hr />
+        <div class="post-info">
+                <p>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="../../../../tags/practicalreverseengineering.html">PracticalReverseEngineering</a></span><span class="tag"><a href="../../../../tags/solutions.html">Solutions</a></span><span class="tag"><a href="../../../../tags/windows.html">Windows</a></span><span class="tag"><a href="../../../../tags/kernel.html">Kernel</a></span><span class="tag"><a href="../../../../tags/system.html">System</a></span><span class="tag"><a href="../../../../tags/threads.html">Threads</a></span>
+                </p>
+        </div>
+    </main>
+            </div>
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span style="font-size: 14px;">&copy; 2024</span>
+            <span>
+                <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" title="This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.">
+                    License
+                </a>
+            </span>
+            <span>
+                    <a href="../../../../index.xml" target="_blank" title="rss">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss">
+                            <path d="M4 11a9 9 0 0 1 9 9"></path>
+                            <path d="M4 4a16 16 0 0 1 16 16"></path>
+                            <circle cx="5" cy="19" r="1"></circle>
+                        </svg>
+                    </a>
+            </span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>
+                <h5>Illustrations by &nbsp;<a target="_blank" href="https://instagram.com/sergio_kalisiak">Sergio Kalisiak</a></h5>
+            </span>
+        </div>
+    </div>
+</footer>
+        </div>
+<script type="text/javascript" src="../../../../bundle.min.8750240a1a2b5e2e02df200915140d47eadf74d9f9510dfe046bef237f486c4542dca2cd6c82d7241a01a6baf1e05afaf2385d481144ad18c0251d56db724273.js" ></script>
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'G-18TCRTW8CL', 'auto');
+        ga('send', 'pageview');
+    </script>
+    </body>
+</html>

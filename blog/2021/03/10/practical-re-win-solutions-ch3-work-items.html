@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author"
+    content="">
+<meta name="description"
+    content="Introduction This post is about &amp;lsquo;Work Items&amp;rsquo; , the third part of my &amp;lsquo;Practical Reverse Engineering&amp;rsquo; solutions series and a natural continuation to the previous one about kernel system threads. Luckily, thanks to Alex Ionescu, while researching the topic, I had the chance to get a pre-proof copy of Windows Internals 7th edition, Part 2 ahead of time so I could check my initial findings against the ones from the authors of the book." />
+<meta name="keywords" content="" />
+<meta name="robots" content="noodp" />
+<title>
+    Work Items & System Worker Threads - &#39;Practical Reverse Engineering&#39; solutions - Part 3 ::   — uf0
+</title>
+	<link rel="canonical" href="https://www.matteomalvica.com/blog/2021/03/10/practical-re-win-solutions-ch3-work-items.html" />
+<link href="../../../../ajax/libs/flag-icon-css/3.2.1/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+<link rel="stylesheet" href="../../../../main.min.ff759f2a796cae22d12f15d9ed52bb682ec25fbef0e2d95a2ae9e53f30536694.css">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../../../../favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../../../../favicon-16x16.png">
+<link rel="manifest" href="https://www.matteomalvica.com/site.webmanifest">
+<link rel="mask-icon" href="../../../../safari-pinned-tab.svg" color="#252627">
+<link rel="shortcut icon" href="../../../../favicon.ico">
+<meta name="theme-color" content="#252627">
+  <meta itemprop="name" content="Work Items &amp; System Worker Threads - &#39;Practical Reverse Engineering&#39; solutions - Part 3">
+  <meta itemprop="description" content="Chapter 3 - page 131">
+  <meta itemprop="datePublished" content="2021-03-10T00:00:00+00:00">
+  <meta itemprop="dateModified" content="2021-03-10T00:00:00+00:00">
+  <meta itemprop="wordCount" content="2453">
+  <meta itemprop="image" content="https://www.matteomalvica.com/img/PRE/PRE3.jpg">
+  <meta itemprop="keywords" content="PracticalReverseEngineering,Solutions,Windows,Kernel,Work,Items,Workers">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://www.matteomalvica.com/img/PRE/PRE3.jpg">
+  <meta name="twitter:title" content="Work Items &amp; System Worker Threads - &#39;Practical Reverse Engineering&#39; solutions - Part 3">
+  <meta name="twitter:description" content="Chapter 3 - page 131">
+<meta property="article:published_time" content="2021-03-10 00:00:00 &#43;0000 UTC" />
+    </head>
+    <body class="dark-theme">
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="../../../../index.html" style="text-decoration: none;">
+    <div class="logo">
+            <span class="logo__mark">></span>
+            <span class="logo__text">/home/uf0</span>
+            <span class="logo__cursor"></span>
+    </div>
+</a>
+        <span class="header__right">
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="../../../../blog.html">blog</a></li><li><a href="../../../../whoami.html">whoami</a></li>
+    </ul>
+</nav>
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-18TCRTW8CL"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-18TCRTW8CL');
+        }
+      </script>
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-RE0LE7QK5X"></script>
+                <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-RE0LE7QK5X');
+                </script>
+            <span class="theme-toggle"><svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+</span>
+        </span>
+    </span>
+</header>
+            <div class="content">
+    <main class="post">
+        <div class="post-info">
+            </p>
+        </div>
+        <article>
+            <h1 class="post-title"><a href="../../../../blog/2021/03/10/practical-re-win-solutions-ch3-work-items.html">Work Items & System Worker Threads - &lsquo;Practical Reverse Engineering&rsquo; solutions - Part 3</a></h1>
+            <div class="post-content">
+  <img src="../../../../img/PRE/PRE3.jpg"  alt="PRE"  class="center"  />
+<h2 id="introduction">Introduction</h2>
+<p>This post is about &lsquo;Work Items&rsquo; , the third part of my &lsquo;Practical Reverse Engineering&rsquo; solutions series and a natural continuation to the previous one about kernel system threads.
+Luckily, thanks to <a href="https://twitter.com/aionescu">Alex Ionescu</a>, while researching the topic, I had the chance to get a pre-proof copy of <em>Windows Internals 7th edition, Part 2</em> ahead of time so I could check my initial findings against the ones from the authors of the book. Also, shout-out to <a href="https://twitter.com/standa_t">Satoshi Tanda</a> for shedding some light along the path.</p>
+<p>As we saw in the previous post, there are times where we want to run a large chunk of code on a different thread rather than the current one, and this it what dedicated system threads are for.
+On the other hand, if we need to run a smaller piece of code, it&rsquo;s better to delegate execution to one of the kernel&rsquo;s thread pool running within the system process, instead of having extra scheduling and memory overhead associated with additional threads in the system
+Work items are just asynchronous mechanisms that are queued into one of the system thread pool and, due to their lightweight nature, they are becoming more and more adopted instead of ad-hoc system threads.</p>
+<p><em>Work items</em> are employed when a driver wants do delay execution by lowering the IRQL level on a given processor and defer tasks to be executed at <code>PASSIVE_LEVEL</code> instead, which is the IRQL level which work items are designed to operate.
+As an example, writing a file on the disk is something that is not allowed at <code>DISPATCH_LEVEL</code>, so a Deferred Procedure Call (DPC) could delegate work to a work item which will execute the operation at <code>PASSIVE_LEVEL</code>.
+Once the work items are enqueued by the driver, a system worker thread will eventually retrieve the item from the queue and run the callback routine.</p>
+<p>Before jumping into the exercise&rsquo;s requirement and solution, let&rsquo;s first get an overview of their structures and internals.</p>
+<h2 id="structures-overview">Structures overview</h2>
+<p>The main structure that compose a work item it&rsquo;s aptly named <code>IO_WORKITEM</code>: starting from Windows 10 1507 Threshold 1, a new member called<code>WorkOnBehalfThread</code> (formerly known as <code>WorkingOnBehalfClient</code>) has been added. It references an <code>ETHREAD</code> structure and it&rsquo;s used whenever a routine is going to be executed on behalf of another thread.</p>
+<pre tabindex="0"><code> 0: kd&gt; dt nt!_IO_WORKITEM  -r 1
+   +0x000 WorkItem         : _WORK_QUEUE_ITEM
+      +0x000 List             : _LIST_ENTRY
+         +0x000 Flink            : ???? 
+         +0x008 Blink            : ???? 
+      +0x010 WorkerRoutine    : ???? 
+      +0x018 Parameter        : ????
+   +0x020 Routine          : Ptr64     void 
+   +0x028 IoObject         : Ptr64 Void
+   +0x030 Context          : Ptr64 Void
+   +0x038 WorkOnBehalfThread : Ptr64 _ETHREAD    
+    +0x040 Type             : Uint4B
+   +0x044 ActivityId       : _GUID
+</code></pre><p>As we can see from above breakdown, the <code>WorkItem</code> field is just a list entry containing the actual routine and parameter as depicted here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">_WORK_QUEUE_ITEM</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">_LIST_ENTRY</span> <span class="n">List</span><span class="p">;</span>                                                <span class="c1">//0x0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">VOID</span> <span class="p">(</span><span class="o">*</span><span class="n">WorkerRoutine</span><span class="p">)(</span><span class="n">VOID</span><span class="o">*</span> <span class="n">arg1</span><span class="p">);</span>                                      <span class="c1">//0x10
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">VOID</span><span class="o">*</span> <span class="n">Parameter</span><span class="p">;</span>                                                        <span class="c1">//0x18
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span></code></pre></div><p>The parameters that are present in this structure are the actual work routine + arguments that are going to be enqueued and ultimately executed.</p>
+<h2 id="enqueuing-work-items">Enqueuing work items</h2>
+<p>A kernel object that wants to place system worker thread’s services can do so by calling either the functions <code>ExQueueWorkItem</code> or, to be used by device drivers only, <code>IoQueueWorkItem</code>.
+Both of these function places the work item in dedicated queues where system workers threads are waiting to pick them up.</p>
+<p>On an historical note, the original NT work item had only <a href="https://www.osronline.com/article.cfm%5Eid=65.htm">two</a> priority levels: DelayedWorkQueue and the CriticalWorkQueue :)</p>
+<p>Whereas, on Windows 8 there were four different queue types:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"> <span class="k">typedef</span> <span class="k">enum</span> <span class="nc">_WORK_QUEUE_TYPE</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">CriticalWorkQueue</span>       <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DelayedWorkQueue</span>        <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">HyperCriticalWorkQueue</span>  <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">MaximumWorkQueue</span>        <span class="o">=</span> <span class="mi">3</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span> <span class="n">WORK_QUEUE_TYPE</span><span class="p">;</span>
+</span></span></code></pre></div><p>And their granularity has increased even more on modern Windows 10:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">enum</span> <span class="nc">_WORK_QUEUE_TYPE</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">CriticalWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">DelayedWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">HyperCriticalWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">NormalWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">BackgroundWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">RealTimeWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">SuperCriticalWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">MaximumWorkQueue</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">CustomPriorityWorkQueue</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="n">WORK_QUEUE_TYPE</span><span class="p">;</span>
+</span></span></code></pre></div><p>Regarding increasing number of priority classes, the Windows Internal Part2 book come in handy:</p>
+<blockquote>
+<p>Because the naming of all of these worker queues started becoming confusing, recent versions of Windows introduced custom priority worker threads, which are now recommended for all driver developers, and which allow the driver to pass-in their own priority level.</p>
+</blockquote>
+<p>Back to analyzing work items structures, if we break on <code>nt!IoQueueWorkItem</code> and perform a live debug of the above structure through our PoC driver (more on that later), we can see how the <code>_WORK_QUEUE_ITEM</code> parameters have been filled.</p>
+<pre tabindex="0"><code>Breakpoint 0 hit
+nt!IoQueueWorkItem:
+2: kd&gt; dt _IO_WORKITEM @rcx
+nt!_IO_WORKITEM
+   +0x000 WorkItem         : _WORK_QUEUE_ITEM
+   +0x020 Routine          : (null) 
+   +0x028 IoObject         : 0xffffb58f`2e15e9a0 Void
+   +0x030 Context          : (null) 
+   +0x038 WorkOnBehalfThread : (null) 
+   +0x040 Type             : 1
+   +0x044 ActivityId       : _GUID {00000000-0000-0000-0000-000000000000}
+2: kd&gt; dx -id 0,0,ffffb58f2c93d080 -r1 (*((ntkrnlmp!_WORK_QUEUE_ITEM *)0xffffb58f2f8ec760))
+(*((ntkrnlmp!_WORK_QUEUE_ITEM *)0xffffb58f2f8ec760))                 [Type: _WORK_QUEUE_ITEM]
+    [+0x000] List             [Type: _LIST_ENTRY]
+    [+0x010] WorkerRoutine    : 0xfffff8073bf5a300 [Type: void (__cdecl*)(void *)]
+    [+0x018] Parameter        : 0xffffb58f2f8ec760 [Type: void *]
+</code></pre><p>We can verify that the <code>IoObject</code> is pointing to our device object from our PoC kernel driver that is named <code>workitem</code>:</p>
+<pre tabindex="0"><code>2: kd&gt; !object ffffb58f`2e15e9a0
+Object: ffffb58f2e15e9a0  Type: (ffffb58f27cf2900) Device
+    ObjectHeader: ffffb58f2e15e970 (new version)
+    HandleCount: 0  PointerCount: 2
+    Directory Object: ffffa2076926e650  Name: workitem
+</code></pre><p>This is expected as we have been using <code>IoQueueWorkItem</code> in our driver, which is telling the I/O system to add a reference to the object, which makes sure the driver cannot quit ahead of time while the thread/work-item are still executing.</p>
+<p>Here is the function syntax:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">IoQueueWorkItem</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__drv_aliasesMem</span> <span class="n">PIO_WORKITEM</span> <span class="n">IoWorkItem</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">PIO_WORKITEM_ROUTINE</span>          <span class="n">WorkerRoutine</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">WORK_QUEUE_TYPE</span>               <span class="n">QueueType</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__drv_aliasesMem</span> <span class="n">PVOID</span>        <span class="n">Context</span>
+</span></span><span class="line"><span class="cl"><span class="p">);</span>
+</span></span></code></pre></div><p>From that, we can verify the routine that is going to be executed in the system thread pool, which is passed as a second parameter in <code>rdx</code></p>
+<pre tabindex="0"><code>1: kd&gt; u @rdx
+workitem!KWorkItemRoutine [C:\Users\matteo\source\repos\workitem\workitem\workitem.cpp @ 12]:
+fffff804`17741000 4889542410      mov     qword ptr [rsp+10h],rdx
+fffff804`17741005 48894c2408      mov     qword ptr [rsp+8],rcx
+fffff804`1774100a 4883ec38        sub     rsp,38h
+fffff804`1774100e 488b442448      mov     rax,qword ptr [rsp+48h]
+fffff804`17741013 4889442420      mov     qword ptr [rsp+20h],rax
+</code></pre><p>Next, <code>IopQueueWorkItemProlog</code> is called from <code>IoQueueWorkItem</code> which returns the actual well-formed <code>IO_WORKITEM</code> populated structure.</p>
+<pre tabindex="0"><code>1: kd&gt; dt _WORK_QUEUE_ITEM @rax
+ntdll!_WORK_QUEUE_ITEM
+   +0x000 List             : _LIST_ENTRY [ 0x00000000`00000000 - 0xffffdb01`089848f0 ]
+   +0x010 WorkerRoutine    : 0xfffff804`0ed5a300     void  nt!IopProcessWorkItem+0
+   +0x018 Parameter        : 0xffffdb01`089848e0 Void
+</code></pre><p>If we inspect the <code>_WORK_QUEUE_ITEM</code> returned value,
+we notice below that the parameter has now been correctly filled with all the correct params, including our final <code>workitem!KWorkItemRoutine</code> routine.</p>
+<pre tabindex="0"><code>1: kd&gt; dt _IO_WORKITEM   0xffffdb01`089848e0
+nt!_IO_WORKITEM
+   +0x000 WorkItem         : _WORK_QUEUE_ITEM
+   +0x020 Routine          : 0xfffff804`17741000     void  workitem!KWorkItemRoutine+0
+   +0x028 IoObject         : 0xffffdb01`06cb0e10 Void
+   +0x030 Context          : 0xffffdb01`089848e0 Void
+   +0x038 WorkOnBehalfThread : 0xffffdb01`03f5c080 _ETHREAD
+   +0x040 Type             : 0
+   +0x044 ActivityId       : _GUID {00000000-0000-0000-0000-000000000000}
+</code></pre><p>Moving on with <code>nt!ExQueueWorkItemFromIo</code>, the same return value is passed as the first function parameter and checking the <code>IO_WORKITEM</code> structure once more, reveals the value of <code>WorkOnBehalfThread</code>. Since this value it&rsquo;s pointing to an ETHREAD structure we can just treat it as such and query it as:</p>
+<pre tabindex="0"><code>1: kd&gt; !thread 0xffffdb01`03f5c080
+THREAD ffffdb0103f5c080  Cid 2324.12a4  Teb: 000000548dba9000 Win32Thread: 0000000000000000 RUNNING on processor 1
+IRP List:
+    ffffdb0103c4e5b0: (0006,0118) Flags: 00060000  Mdl: 00000000
+Not impersonating
+DeviceMap                 ffffad041be65130
+Owning Process            ffffdb01074f9080       Image:         userapp.exe
+[...]
+</code></pre><p>No wonder this thread belong to our original <code>userapp.exe</code>, and since we are in its IOCTL context, the kernel is preserving this value in case it should return anything to it.
+However, as we&rsquo;d expect - and will confirm this shortly - the work routine itself is going to run under a system thread pool context.</p>
+<p>Another aspect worth noting is that the <code>WorkerRoutine</code> inside the LIST_ENTRY is pointing to the <code>IopProcessWorkItem</code>, but why?</p>
+<pre tabindex="0"><code>2: kd&gt; u fffff8073bf5a300
+nt!IopProcessWorkItem:
+</code></pre><p>Once we have enqueued our work item, if we place a breakpoint to <code>IopProcessWorkItem</code> we notice that is responsible for executing the work item routine itself.
+And if we check the first argument being passed, we can in fact discover the familiar IO_WORKITEM structure with the same values from before.</p>
+<pre tabindex="0"><code>2: kd&gt; dt _IO_WORKITEM @rcx
+nt!_IO_WORKITEM
+   +0x000 WorkItem         : _WORK_QUEUE_ITEM
+   +0x020 Routine          : 0xfffff804`17741000     void  workitem!KWorkItemRoutine+0
+   +0x028 IoObject         : 0xffffdb01`06cb0e10 Void
+   +0x030 Context          : 0xffffdb01`089848e0 Void
+   +0x038 WorkOnBehalfThread : 0xffffdb01`03f5c080 _ETHREAD
+   +0x040 Type             : 0
+   +0x044 ActivityId       : _GUID {00000000-0000-0000-0000-000000000000}
+</code></pre><p>The work item&rsquo;s routine is still the same original one and pointing again to <code>workitem!KWorkItemRoutine+0</code> - let&rsquo;s continue execution and see if what happens next.
+Once we land in our routine, thread context has already switched and we are suddenly in a system thread context and not in the user IOCTL one any longer.</p>
+<pre tabindex="0"><code>: kd&gt; k
+ # Child-SP          RetAddr           Call Site
+00 ffff860b`5f4f4af8 fffff807`3bf5a435 workitem!KWorkItemRoutine [C:\Users\matteo\source\repos\workitem\workitem\workitem.cpp @ 12] 
+01 ffff860b`5f4f4b00 fffff807`3be25975 nt!IopProcessWorkItem+0x135
+02 ffff860b`5f4f4b70 fffff807`3bf17e25 nt!ExpWorkerThread+0x105
+03 ffff860b`5f4f4c10 fffff807`3bffd0d8 nt!PspSystemThreadStartup+0x55
+04 ffff860b`5f4f4c60 00000000`00000000 nt!KiStartSystemThread+0x28
+</code></pre><p>And, no surprise, if we check the current thread it does belong to System process and <code>ExpWorkerThread</code> thread pool.</p>
+<pre tabindex="0"><code>2: kd&gt; !thread
+THREAD ffffdb0fff49c080  Cid 0004.00d8  Teb: 0000000000000000 Win32Thread: 0000000000000000 RUNNING on processor 2
+Not impersonating
+DeviceMap                 ffffad0416a36c00
+Owning Process            ffffdb0fff487040       Image:         System
+Attached Process          N/A            Image:         N/A
+Wait Start TickCount      72328          Ticks: 34 (0:00:00:00.531)
+Context Switch Count      1979           IdealProcessor: 1             
+UserTime                  00:00:00.000
+KernelTime                00:00:00.046
+Win32 Start Address nt!ExpWorkerThread (0xfffff8040ec25870)
+</code></pre><h2 id="partitions-to-the-rescue">Partitions to the rescue</h2>
+<p>Now that we know more about how work items are queued, let&rsquo;s see where these queues are implemented in memory.
+After some investigations and rabbit holes, it appears that starting from Windows10 memory partitions are used to store WorkerQueues instead of CPU structures like the <code>ENODE</code> from <code>KPRCB</code>.</p>
+<p>A memory partition is a self-contained entity that has its own management internals like page lists, working set etc. which are isolated from other partitions.
+There are actually three types of partition structures used in the Windows 10 Kernel: Memory Manager, Cache System and Executive.</p>
+<p>For our purpose, the executive partition is the one we are after, which is well described by the upcoming Windows Internals Part 2 book:</p>
+<blockquote>
+<p>Each partition object contains an executive partition, which is the portion of the partition object relevant to the executive, namely, the system worker thread logic. It contains a data structure tracking the work queue manager for each NUMA node part of the partition (a queue manager is made up of the deadlock detection timer, the work queue item reaper, and a handle to the actual thread doing the management). It then contains an array of pointers to each of the 8 possible work queues (EX_WORK_QUEUE). These queues are associated with an individual index and track the number of minimum (guaranteed) and maximum threads, as well as how many work items have been processed so far.</p>
+</blockquote>
+<p>Furthermore, the book mentions that two different kinds of queues exist for a given system: the <em>ExPool</em> and <em>IoPool</em>, where the first is used by system components via the <code>ExQueueWorkItem</code> routine and second via <code>IoAllocateWorkItem</code> routine made for device drivers.</p>
+<p>Back on our quest of mapping relations between work items queues and the memory partition, we discovered that <code>nt!ExWorkerQueue</code> is a kernel variable which has a pointer to the System Partition Object.</p>
+<pre tabindex="0"><code>0: kd&gt; dx *(nt!_EX_WORK_QUEUE**)&nt!ExWorkerQueue
+*(nt!_EX_WORK_QUEUE**)&nt!ExWorkerQueue                 : 0xffffdb0fff47cbd0 [Type: _EX_WORK_QUEUE *]
+    [+0x000] WorkPriQueue     [Type: _KPRIQUEUE]
+    [+0x2b0] Partition        : 0xffffdb0fff4502a0 [Type: _EX_PARTITION *]
+    [...]
+</code></pre><p>We can further inspect the <code>EX_PARTITION</code>:</p>
+<pre tabindex="0"><code>0: kd&gt; dx -r1 ((ntkrnlmp!_EX_PARTITION *)0xffffdb0fff4502a0)
+((ntkrnlmp!_EX_PARTITION *)0xffffdb0fff4502a0)                 : 0xffffdb0fff4502a0 [Type: _EX_PARTITION *]
+    [+0x000] PartitionObject  : 0xffffdb0fff48ba40 [Type: _EPARTITION *]
+    [+0x008] WorkQueues       : 0xffffdb0fff4902f0 [Type: _EX_WORK_QUEUE * * *]
+    [+0x010] WorkQueueManagers : 0xffffdb0fff490450 [Type: _EX_WORK_QUEUE_MANAGER * *]
+    [+0x018] QueueAllocationMask : 248 [Type: long]
+</code></pre><p>and the <code>EPARTITION</code>:</p>
+<pre tabindex="0"><code>0: kd&gt; dx -r1 ((ntkrnlmp!_EPARTITION *)0xffffdb0fff48ba40)
+((ntkrnlmp!_EPARTITION *)0xffffdb0fff48ba40)                 : 0xffffdb0fff48ba40 [Type: _EPARTITION *]
+    [+0x000] MmPartition      : 0xfffff8040f650bc0 [Type: void *]
+    [+0x008] CcPartition      : 0xffffdb0fff579560 [Type: void *]
+    [+0x010] ExPartition      : 0xffffdb0fff4502a0 [Type: void *]
+    ...
+</code></pre><p>As we saw earlier, the thread pool responsible for executing our work item routine is <code>ExpWorkerThread</code>, which is initialized via the <code>ExpWorkerInitialization</code> function and which, in turn, references <code>PspSystemPartition</code> at offset 0x10 (that is <code>PspSystemPartition-&gt;ExPartition</code>).</p>
+<p><img alt="ida1" src="../../../../img/PRE/ExpWorkerInItialization1.png"></p>
+<h2 id="disclosing-the-running-system-worker-thread">Disclosing the running System Worker Thread.</h2>
+<p>Moving back to the first exercise&rsquo;s question</p>
+<blockquote>
+<p>Explain how we were able to determine that ExpWorkerThread is the sys- tem thread responsible for dequeueing work items and executing them. Hint: The fastest way is to write a driver.</p>
+</blockquote>
+<p>We can write a quick <a href="https://github.com/uf0o/practical_reverse_engineering/tree/main/chapter3/page131/workitems">PoC driver</a> to find out the current thread executing the work item.</p>
+<p>Here&rsquo;s the main function responsible for queing the work item via <code>IoQueueWorkItem</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">NTSTATUS</span> <span class="nf">WorkitemDeviceControl</span><span class="p">(</span><span class="n">PDEVICE_OBJECT</span> <span class="n">device</span><span class="p">,</span> <span class="n">PIRP</span> <span class="n">Irp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">auto</span> <span class="n">stack</span> <span class="o">=</span> <span class="n">IoGetCurrentIrpStackLocation</span><span class="p">(</span><span class="n">Irp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">auto</span> <span class="n">status</span> <span class="o">=</span> <span class="n">STATUS_SUCCESS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">switch</span> <span class="p">(</span><span class="n">stack</span><span class="o">-&gt;</span><span class="n">Parameters</span><span class="p">.</span><span class="n">DeviceIoControl</span><span class="p">.</span><span class="n">IoControlCode</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nl">IOCTL_WORKITEM</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">auto</span> <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">JunkData</span><span class="o">*</span><span class="p">)</span><span class="n">stack</span><span class="o">-&gt;</span><span class="n">Parameters</span><span class="p">.</span><span class="n">DeviceIoControl</span><span class="p">.</span><span class="n">Type3InputBuffer</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">(</span><span class="n">data</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="n">status</span> <span class="o">=</span> <span class="n">STATUS_INVALID_PARAMETER</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">			<span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="n">KeSetBasePriorityThread</span><span class="p">(</span><span class="n">KeGetCurrentThread</span><span class="p">(),</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="n">PIO_WORKITEM</span> <span class="n">pWorkItem</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// Work item
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="n">pWorkItem</span> <span class="o">=</span> <span class="n">IoAllocateWorkItem</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="n">IoQueueWorkItem</span><span class="p">(</span><span class="n">pWorkItem</span><span class="p">,</span> <span class="n">KWorkItemRoutine</span><span class="p">,</span> <span class="n">DelayedWorkQueue</span><span class="p">,</span> <span class="n">pWorkItem</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">default</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">		<span class="n">status</span> <span class="o">=</span> <span class="n">STATUS_INVALID_DEVICE_REQUEST</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">		<span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="n">Irp</span><span class="o">-&gt;</span><span class="n">IoStatus</span><span class="p">.</span><span class="n">Status</span> <span class="o">=</span> <span class="n">status</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">Irp</span><span class="o">-&gt;</span><span class="n">IoStatus</span><span class="p">.</span><span class="n">Information</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">IoCompleteRequest</span><span class="p">(</span><span class="n">Irp</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="n">status</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The routine <code>KWorkItemRoutine</code> is simply getting the current process/thread via two macros:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">VOID</span> <span class="nf">KWorkItemRoutine</span><span class="p">(</span><span class="n">IN</span> <span class="n">DEVICE_OBJECT</span><span class="o">*</span> <span class="n">DeviceObject</span><span class="p">,</span> <span class="n">IN</span> <span class="n">PVOID</span> <span class="n">Context</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="n">UNREFERENCED_PARAMETER</span><span class="p">(</span><span class="n">DeviceObject</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PIO_WORKITEM</span> <span class="n">pIoWorkItem</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">pIoWorkItem</span> <span class="o">=</span> <span class="p">(</span><span class="n">PIO_WORKITEM</span><span class="p">)</span><span class="n">Context</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">KdPrint</span><span class="p">((</span><span class="n">DRIVER_PREFIX</span><span class="s">&#34;KWorkItemRoutine running from [%p][%p]  </span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">PsGetCurrentProcessId</span><span class="p">(),</span> <span class="n">PsGetCurrentThreadId</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl">	<span class="n">IoFreeWorkItem</span><span class="p">(</span><span class="n">pIoWorkItem</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>After executing the routine from userland, the alert us of the current system thread pool being &rsquo;leased&rsquo; to execute the routine.</p>
+<pre tabindex="0"><code>WorkItemTest: KWorkItemRoutine running from [0000000000000004][00000000000000D8]    
+</code></pre><p>To verify the correctness we can dump the entire <code>IoPool</code> queue from NUMA node0&rsquo;s ExPartition.</p>
+<pre tabindex="0"><code>dx -r0 @$queue = ((nt!_EX_PARTITION*)(*(nt!_EPARTITION**)&nt!PspSystemPartition)-&gt;ExPartition)-&gt;WorkQueues[0][1],d
+    [+0x000] WorkPriQueue     [Type: _KPRIQUEUE]
+    [+0x2b0] Partition        : 0xffff830e2d8500c0 [Type: _EX_PARTITION *]
+    [+0x2b8] Node             : 0xfffff80704f25440 [Type: _ENODE *]
+    [+0x2c0] WorkItemsProcessed : 2463 [Type: unsigned long]
+    [+0x2c4] WorkItemsProcessedLastPass : 1708 [Type: unsigned long]
+    [+0x2c8] ThreadCount      : 7 [Type: long]
+    [+0x2cc (30: 0)] MinThreads       : 0 [Type: long]
+    [+0x2cc (31:31)] TryFailed        : 0 [Type: unsigned long]
+    [+0x2d0] MaxThreads       : 4096 [Type: long]
+    [+0x2d4] QueueIndex       : IoPoolUntrusted (1) [Type: _EXQUEUEINDEX]
+    [+0x2d8] AllThreadsExitedEvent : 0x0 [Type: _KEVENT *]
+</code></pre><p>Only 7 threads are currently queued, so we can check them one by one.</p>
+<pre tabindex="0"><code>0: kd&gt; dx -r0 @$queue = ((nt!_EX_PARTITION*)(*(nt!_EPARTITION**)&nt!PspSystemPartition)-&gt;ExPartition)-&gt;WorkQueues[0][1],d
+0: kd&gt; dx -r1 Debugger.Utility.Collections.FromListEntry(@$queue-&gt;WorkPriQueue.ThreadListHead, &#34;nt!_KTHREAD&#34;, &#34;QueueListEntry&#34;)
+Debugger.Utility.Collections.FromListEntry(@$queue-&gt;WorkPriQueue.ThreadListHead, &#34;nt!_KTHREAD&#34;, &#34;QueueListEntry&#34;)                
+    [0x0]            [Type: _KTHREAD]
+    [0x1]            [Type: _KTHREAD]
+    [0x2]            [Type: _KTHREAD]
+    [0x3]            [Type: _KTHREAD]
+    [0x4]            [Type: _KTHREAD]
+    [0x5]            [Type: _KTHREAD]
+    [0x6]            [Type: _KTHREAD]
+</code></pre><p>The second one appears to be <code>nt!ExpWorkerThread</code>,the one we&rsquo;re after, with an id of <code>d8</code> and belonging , as expected, to the System process:</p>
+<pre tabindex="0"><code>0: kd&gt; !thread 0xffff830e2f346080
+THREAD ffff830e2f346080  Cid 0004.00d8  Teb: 0000000000000000 Win32Thread: 0000000000000000 WAIT: (WrQueue) KernelMode Non-Alertable
+    ffff830e2d85ea20  PriQueueObject
+Not impersonating
+DeviceMap                 ffff9e005d4365a0
+Owning Process            ffff830e2d89e040       Image:         System
+Attached Process          N/A            Image:         N/A
+Wait Start TickCount      8367           Ticks: 10 (0:00:00:00.156)
+Context Switch Count      751            IdealProcessor: 1             
+UserTime                  00:00:00.000
+KernelTime                00:00:01.140
+Win32 Start Address nt!ExpWorkerThread (0xfffff80704425870)
+Stack Init fffff00852f9ac90 Current fffff00852f9a820
+Base fffff00852f9b000 Limit fffff00852f95000 Call 0000000000000000
+Priority 12 BasePriority 12 PriorityDecrement 0 IoPriority 2 PagePriority 5
+Child-SP          RetAddr           : Args to Child     
+</code></pre><p>If we want to fetch the <code>ExPool</code> queue we simply have to fetch the first member of the array as such:</p>
+<pre tabindex="0"><code>dx -r0 @$queue = ((nt!_EX_PARTITION*)(*(nt!_EPARTITION**)&nt!PspSystemPartition)-&gt;ExPartition)-&gt;WorkQueues[0][1],d
+</code></pre><p>Given the above WinDBG commands we could upgrade them in a full-fledged kernel driver that retrieves all threads of each of the two queues.
+I might include this driver as final exercise to the same github repository, but in meantime feel free to share it and let me know if you are planning to make one.</p>
+            </div>
+        </article>
+        <hr />
+        <div class="post-info">
+                <p>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="../../../../tags/practicalreverseengineering.html">PracticalReverseEngineering</a></span><span class="tag"><a href="../../../../tags/solutions.html">Solutions</a></span><span class="tag"><a href="../../../../tags/windows.html">Windows</a></span><span class="tag"><a href="../../../../tags/kernel.html">Kernel</a></span><span class="tag"><a href="../../../../tags/work.html">work</a></span><span class="tag"><a href="../../../../tags/items.html">items</a></span><span class="tag"><a href="../../../../tags/workers.html">workers</a></span>
+                </p>
+        </div>
+    </main>
+            </div>
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span style="font-size: 14px;">&copy; 2024</span>
+            <span>
+                <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" title="This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.">
+                    License
+                </a>
+            </span>
+            <span>
+                    <a href="../../../../index.xml" target="_blank" title="rss">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss">
+                            <path d="M4 11a9 9 0 0 1 9 9"></path>
+                            <path d="M4 4a16 16 0 0 1 16 16"></path>
+                            <circle cx="5" cy="19" r="1"></circle>
+                        </svg>
+                    </a>
+            </span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>
+                <h5>Illustrations by &nbsp;<a target="_blank" href="https://instagram.com/sergio_kalisiak">Sergio Kalisiak</a></h5>
+            </span>
+        </div>
+    </div>
+</footer>
+        </div>
+<script type="text/javascript" src="../../../../bundle.min.8750240a1a2b5e2e02df200915140d47eadf74d9f9510dfe046bef237f486c4542dca2cd6c82d7241a01a6baf1e05afaf2385d481144ad18c0251d56db724273.js" ></script>
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'G-18TCRTW8CL', 'auto');
+        ga('send', 'pageview');
+    </script>
+    </body>
+</html>

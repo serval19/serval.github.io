@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author"
+    content="">
+<meta name="description"
+    content="IRQL Overview Present since the early stages of Windows NT, an Interrupt Request Level (IRQL) defines the current hardware priority at which a CPU runs at any given time. On a multi-processor architecture, each CPU can hold a different and independent IRQL value, which is stored inside the CR8 register. We should keep this in mind as we are going to build our lab examples on a quad-core system." />
+<meta name="keywords" content="" />
+<meta name="robots" content="noodp" />
+<title>
+    IRQLs Close Encounters of the Rootkit Kind ::   — uf0
+</title>
+	<link rel="canonical" href="https://www.matteomalvica.com/blog/2022/01/03/irqls-rootkits.html" />
+<link href="../../../../ajax/libs/flag-icon-css/3.2.1/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+<link rel="stylesheet" href="../../../../main.min.ff759f2a796cae22d12f15d9ed52bb682ec25fbef0e2d95a2ae9e53f30536694.css">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../../../../favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../../../../favicon-16x16.png">
+<link rel="manifest" href="https://www.matteomalvica.com/site.webmanifest">
+<link rel="mask-icon" href="../../../../safari-pinned-tab.svg" color="#252627">
+<link rel="shortcut icon" href="../../../../favicon.ico">
+<meta name="theme-color" content="#252627">
+  <meta itemprop="name" content="IRQLs Close Encounters of the Rootkit Kind">
+  <meta itemprop="description" content="IRQLs whereabouts">
+  <meta itemprop="datePublished" content="2022-01-03T00:00:00+00:00">
+  <meta itemprop="dateModified" content="2022-01-03T00:00:00+00:00">
+  <meta itemprop="wordCount" content="2463">
+  <meta itemprop="image" content="https://www.matteomalvica.com/img/IRQL/VR.png">
+  <meta itemprop="keywords" content="Windows,Kernel,IRQLs,Rootkits">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://www.matteomalvica.com/img/IRQL/VR.png">
+  <meta name="twitter:title" content="IRQLs Close Encounters of the Rootkit Kind">
+  <meta name="twitter:description" content="IRQLs whereabouts">
+<meta property="article:published_time" content="2022-01-03 00:00:00 &#43;0000 UTC" />
+    </head>
+    <body class="dark-theme">
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="../../../../index.html" style="text-decoration: none;">
+    <div class="logo">
+            <span class="logo__mark">></span>
+            <span class="logo__text">/home/uf0</span>
+            <span class="logo__cursor"></span>
+    </div>
+</a>
+        <span class="header__right">
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="../../../../blog.html">blog</a></li><li><a href="../../../../whoami.html">whoami</a></li>
+    </ul>
+</nav>
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-18TCRTW8CL"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-18TCRTW8CL');
+        }
+      </script>
+                <script async src="https://www.googletagmanager.com/gtag/js?id=G-RE0LE7QK5X"></script>
+                <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-RE0LE7QK5X');
+                </script>
+            <span class="theme-toggle"><svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+</span>
+        </span>
+    </span>
+</header>
+            <div class="content">
+    <main class="post">
+        <div class="post-info">
+            </p>
+        </div>
+        <article>
+            <h1 class="post-title"><a href="../../../../blog/2022/01/03/irqls-rootkits.html">IRQLs Close Encounters of the Rootkit Kind</a></h1>
+            <div class="post-content">
+  <img src="../../../../img/IRQL/VR.png"  alt="PRE"  class="center"  />
+<h2 id="irql-overview">IRQL Overview</h2>
+<p>Present since the early stages of Windows NT, an <em>Interrupt Request
+Level</em> (IRQL) defines the current hardware priority at which a
+CPU runs at any given time. On a multi-processor architecture, each
+CPU can hold a different and independent IRQL value, which is stored
+inside the <!-- raw HTML omitted -->CR8<!-- raw HTML omitted --> register. We should keep this in mind
+as we are going to build our lab examples on a quad-core system.</p>
+<p>Every hardware interrupt is mapped to a specific request level as
+depicted below.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="IRQL values" src="../../../../img/IRQL/IRQLs.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->IRQL Values<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>A CPU is interrupted from completing its current task only when
+it receives an interrupt that is above the current IRQL value. The
+current running thread is responsible for handling these interrupts,
+which saves the current CPU state and then processes the <em>Interrupt
+Service Routine</em> (ISR) mapped to the incoming IRQL. Each
+interrupt routine is mapped inside the <em>Interrupt Description
+Table</em> (IDT), whose pointer is stored inside the <em>idtr</em>
+register. From the debugger, the IDT can be inspected through the
+<!-- raw HTML omitted -->!idt<!-- raw HTML omitted --> command, which automatically resolves pointers
+symbols and other details.</p>
+<pre tabindex="0"><code>kd&gt; !idt
+Dumping IDT: fffff8015e262000 
+00:	fffff8015b81fb00 nt!KiDivideErrorFault
+01:	fffff8015b81fe40 nt!KiDebugTrapOrFault	Stack = 0xFFFFF8015E2A0000
+02:	fffff8015b820340 nt!KiNmiInterrupt	Stack = 0xFFFFF8015E292000
+03:	fffff8015b820800 nt!KiBreakpointTrap
+04:	fffff8015b820b40 nt!KiOverflowTrap
+05:	fffff8015b820e80 nt!KiBoundFault
+06:	fffff8015b8213c0 nt!KiInvalidOpcodeFault
+07:	fffff8015b8218c0 nt!KiNpxNotAvailableFault
+08:	fffff8015b821bc0 nt!KiDoubleFaultAbort	Stack = 0xFFFFF8015E28B000
+09:	fffff8015b821ec0 nt!KiNpxSegmentOverrunAbort
+0a:	fffff8015b8221c0 nt!KiInvalidTssFault
+...
+d1:	fffff8015b817f18 nt!HalpTimerClockInterrupt (KINTERRUPT fffff8015c1119a0)
+</code></pre><p>Notice that the interrupt at index <em>d1</em> is mapped to the
+CPU clock. We can verify if its IRQL indeed corresponds to the
+13th value from the table above. To do so, we dump the CPU clock&rsquo;s
+<em>KINTERRUPT</em> structure that we found earlier in the IDT.</p>
+<pre tabindex="0"><code>kd&gt; dt _KINTERRUPT fffff8015c1119a0 Irql
+nt!_KINTERRUPT
+   +0x05c Irql : 0xd &#39;&#39;
+</code></pre><p>The KINTERRUPT is a crucial structure that stores information
+related to interrupt dispatching.</p>
+<p>Now that we&rsquo;ve briefly discussed IRQLs, let&rsquo;s explore their role and
+duties as kernel synchronization mechanisms.</p>
+<h2 id="synchronization-at-irql--2">Synchronization at IRQL ≥ 2</h2>
+<p>When two or more threads need to access a shared kernel resource, they
+must agree on how to access the shared object in a synchronous way to
+eliminate the chances of corrupting it.</p>
+<p>A <em>mutex</em> (from <em>Mutual Exclusion</em>) is
+one way to accomplish such synchronization between
+threads. When the first thread wants to access a <!-- raw HTML omitted -->Critical Section<!-- raw HTML omitted --><sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> (the shared
+portion of code), it acquires a lock on the mutex. Once the thread
+has completed its tasks, it releases the mutex&rsquo;s lock and only at that
+moment can another thread acquire it and access the shared resource.
+In layman&rsquo;s terms, a mutex is <em>protecting</em> the critical section
+from being accessed or modified by multiple threads at the same time.</p>
+<p>Since the Windows system scheduler runs at <em>DISPATCH_LEVEL</em>
+(IRQL 2), mutexes cannot be adopted at a level above or equal to 2.
+This is due to the fact that any thread-synchronization mechanism
+requires the scheduler to take scheduling action on those threads and
+thus, having a thread running at the same IRQL of the scheduler will
+ultimately prevent the scheduler from even starting.</p>
+<p>Now, the pressing question from a rootkit developer&rsquo;s perspective:
+why do we even need a synchronization primitive at IRQL ≥ 2 if the
+scheduler is already taking care of everything at lower priorities?</p>
+<p>Rootkits and alike, often access and modify shared kernel resources
+in order to subvert system properties or just to simply be less
+conspicuous. The rootkit synchronization technique we are going to
+analyze in this blog post has its very effectiveness in running at
+IRQL DISPATCH_LEVEL, thus enabling the rootkit code to modify kernel
+structures without risking any system crash.</p>
+<p>Albeit this technique has been
+originally presented in the well-known <!-- raw HTML omitted -->Hoglund/Butler book<!-- raw HTML omitted --> from 2005, it&rsquo;s
+still equally effective on present systems.</p>
+<p>The code reference for this project is available on <!-- raw HTML omitted -->GitHub<!-- raw HTML omitted -->. It&rsquo;s an x64 version of
+Bill Blunden&rsquo;s Rootkit Arsenal project driver that implements the
+Hoglund/Butler synchronization mechanism.</p>
+<h2 id="idling-cpus---dpcs-to-the-rescue">Idling CPUs - DPCs to the Rescue</h2>
+<p>The goal of our rootkit project is to access a shared kernel resource
+while making sure that no other threads running on any CPU are going
+to step on our toes. As mentioned earlier, we are not allowed to
+rely on mutexes to perform our synchronization routine, so we need to
+resort to another kernel mechanism: <em>Deferred Procedure Calls</em>
+(DPC).</p>
+<p>DPCs are normally used whenever a high hardware interrupt wants to
+hold up some of its routine to the lower DISPATCH (2) level. In this
+way, DPCs allow drivers to down-prioritize less critical tasks to
+a lower IRQL level. Once initialized, DPCs are then enqueued on a
+per-CPU queue and executed when all the remaining higher IRQLs are
+finished.</p>
+<p>One complementary feature of DPCs is that, after initializing the DPC
+structure with the <em>KeInitializeDpc</em> routine, we can specify
+the exact target CPU where the DPC is going to be executed with
+the <em>KeSetTargetProcessorDpc</em> function. The reason this is
+critically important will become clear shortly.</p>
+<p>Now that we&rsquo;re armed with a basic understanding of DPCs, let&rsquo;s
+determine how they fit in our project. Here&rsquo;s the overall approach we
+are going to implement as our custom DISPATCH-LEVEL mutex:</p>
+<ol>
+<li>Increase the current CPU&rsquo;s IRQL to DISPATCH_LEVEL.</li>
+<li>Initialize and enqueue DPCs so we set other CPUs to DISPATCH_LEVEL and perform an infinite NOP loop.</li>
+<li>The current CPU accesses the shared resource.</li>
+<li>We tell DPCs running on the other CPUs to exit the loop.</li>
+<li>We restore the current CPU&rsquo;s IRQL</li>
+</ol>
+<p>This way, we are able to safely access the shared resource by forcing
+the remaining CPUs to do nothing and just sit on their metaphorical
+hands. We&rsquo;re now going to dissect the relevant code portion for each
+of these steps, and finally verify our assumptions with the debugger.</p>
+<h2 id="inspecting-the-code">Inspecting the Code</h2>
+<p>From a high-level perspective, we already know <em>what</em> to do,
+so let&rsquo;s investigate how. We can start by inspecting the
+<em>DriverEntry</em> routine.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-C" data-lang="C"><span class="line"><span class="cl"><span class="n">NTSTATUS</span> <span class="nf">DriverEntry</span><span class="p">(</span><span class="n">IN</span> <span class="n">PDRIVER_OBJECT</span> <span class="n">pDriverObject</span><span class="p">,</span> <span class="n">IN</span> <span class="n">PUNICODE_STRING</span> <span class="n">regPath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="n">NTSTATUS</span> <span class="n">ntStatus</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">KIRQL</span> <span class="n">irql</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PKDPC</span> <span class="n">dpcPtr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Driver Entry&#34;</span><span class="p">,</span> <span class="s">&#34;Establishing other DriverObject function pointers&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="p">(</span><span class="o">*</span><span class="n">pDriverObject</span><span class="p">).</span><span class="n">DriverUnload</span> <span class="o">=</span> <span class="n">Unload</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Driver Entry&#34;</span><span class="p">,</span> <span class="s">&#34;Raising IRQL&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">irql</span> <span class="o">=</span> <span class="nf">RaiseIRQL</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Driver Entry&#34;</span><span class="p">,</span> <span class="s">&#34;Acquiring Lock&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">dpcPtr</span> <span class="o">=</span> <span class="nf">AcquireLock</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">AccessResource</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Driver Entry&#34;</span><span class="p">,</span> <span class="s">&#34;Releasing Lock&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">ReleaseLock</span><span class="p">(</span><span class="n">dpcPtr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Driver Entry&#34;</span><span class="p">,</span> <span class="s">&#34;Lowering IRQL&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">LowerIRQL</span><span class="p">(</span><span class="n">irql</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="p">(</span><span class="n">STATUS_SUCCESS</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>In the first step of our routine, we increase the current process IRQL
+through the <em>RaiseIRQL</em> function.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-C" data-lang="C"><span class="line"><span class="cl"><span class="n">KIRQL</span> <span class="nf">RaiseIRQL</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="n">KIRQL</span> <span class="n">curr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">KIRQL</span> <span class="n">prev</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="cm">/* Get the current interrupt irql level */</span>
+</span></span><span class="line"><span class="cl">	<span class="n">curr</span> <span class="o">=</span> <span class="nf">KeGetCurrentIrql</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="n">prev</span> <span class="o">=</span> <span class="n">curr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">(</span><span class="n">curr</span> <span class="o">&lt;</span> <span class="n">DISPATCH_LEVEL</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">KeRaiseIrql</span><span class="p">(</span><span class="n">DISPATCH_LEVEL</span><span class="p">,</span> <span class="o">&</span><span class="n">prev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="p">(</span><span class="n">prev</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>We first retrieve the current CPU&rsquo;s IRQL level through the
+<em>KeGetCurrentIrql</em> function and, interestingly enough, this
+<em>ntoskrnl</em> routine comprises only two instructions.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="Inspecting KeGetCurrentIrql in IDA Pro" src="../../../../img/IRQL/ida1.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->Inspecting KeGetCurrentIrql<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>This proves what we just learned earlier&ndash;that the current CPU IRQL
+value is stored in the <em>cr8</em> register and is then placed in
+<em>RAX</em> as a return value.</p>
+<p>As a next step, <em>RaiseIRQL</em> checks if the current IRQL value is
+lower than DISPATCH_LEVEL and if so, it raises it to that IRQL through
+the _KeRaiseIrql_function. Inside <em>ntoskrnl</em>, this
+function is mapped as <em>KfRaiseIrql</em> and performs the following:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"><img alt="Inspecting KfRaiseIrql" src="../../../../img/IRQL/ida2.png"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><!-- raw HTML omitted -->Inspecting KfRaiseIrql<!-- raw HTML omitted --></td>
+</tr>
+</tbody>
+</table>
+<p>The top-most block provides the main functionality. In the first
+three instructions, the desired IRQL level is saved in <em>r11</em>.
+The current IRQL is then placed in <em>rax</em> as a return value
+and finally, the requested IRQL is placed in <em>cr8</em>. The other
+three blocks are just checking that the requested IRQL is not 1 (APC),
+and that the current IRQL and requested ones are not above 0xF (max
+allowed value).</p>
+<p>If all these conditions are false, on the bottom right block,
+the undocumented <em>SchedulerAssist</em> value from the <!-- raw HTML omitted -->KPRCB<!-- raw HTML omitted --> is modified accordingly.</p>
+<!-- raw HTML omitted -->
+<p>Having raised the current CPU&rsquo;s IRQL, it is now time to perform the
+same operation for the other remaining CPUs. This is accomplished with
+the help of the <em>AcquireLock</em> function and through the use of DPCs.
+Let&rsquo;s analyze this routine by decoupling it by functionality.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-C" data-lang="C"><span class="line"><span class="cl"><span class="n">PKDPC</span> <span class="nf">AcquireLock</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="p">...</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">InterlockedAnd</span><span class="p">(</span><span class="o">&</span><span class="n">LockAcquired</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">InterlockedAnd</span><span class="p">(</span><span class="o">&</span><span class="n">nCPUsLocked</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_PRINT2</span><span class="p">(</span><span class="s">&#34;[AcquiredLock]: nCPUs=%u</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">KeNumberProcessors</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="n">dpcArray</span> <span class="o">=</span> <span class="p">(</span><span class="n">PKDPC</span><span class="p">)</span><span class="nf">ExAllocatePoolWithTag</span><span class="p">(</span><span class="n">NonPagedPool</span><span class="p">,</span><span class="n">KeNumberProcessors</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">KDPC</span><span class="p">),</span> <span class="mh">0x0F11</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">(</span><span class="n">dpcArray</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="n">cpuID</span> <span class="o">=</span> <span class="nf">KeGetCurrentProcessorNumber</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">KeNumberProcessors</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="n">PKDPC</span> <span class="n">dpcPtr</span> <span class="o">=</span> <span class="o">&</span><span class="p">(</span><span class="n">dpcArray</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">cpuID</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nf">KeInitializeDpc</span><span class="p">(</span><span class="n">dpcPtr</span><span class="p">,</span> <span class="n">lockRoutine</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">			<span class="nf">KeSetTargetProcessorDpc</span><span class="p">(</span><span class="n">dpcPtr</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">			<span class="nf">KeInsertQueueDpc</span><span class="p">(</span><span class="n">dpcPtr</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="n">nOtherCPUs</span> <span class="o">=</span> <span class="n">KeNumberProcessors</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">InterlockedCompareExchange64</span><span class="p">(</span><span class="o">&</span><span class="n">nCPUsLocked</span><span class="p">,</span> <span class="n">nOtherCPUs</span><span class="p">,</span> <span class="n">nOtherCPUs</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">while</span> <span class="p">(</span><span class="n">nCPUsLocked</span> <span class="o">!=</span> <span class="n">nOtherCPUs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">NOP_FUNC</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">InterlockedCompareExchange64</span><span class="p">(</span><span class="o">&</span><span class="n">nCPUsLocked</span><span class="p">,</span> <span class="n">nOtherCPUs</span><span class="p">,</span> <span class="n">nOtherCPUs</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="p">(</span><span class="n">dpcArray</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Before dealing with anything related to DPCs, we first need some
+sort of synchronization mechanism that tells us that all the CPU are
+running at DISPATCH_LEVEL along with a method to signal the other CPUs
+when to exit the infinite NOP loop.</p>
+<p>According to MSDN, the <em>Interlocked</em> function family provides
+exactly what we want:</p>
+<!-- raw HTML omitted -->
+<p>These functions are generated as <em>intrinsics</em>
+by the compiler, so that the CPU can force <!-- raw HTML omitted -->memory barriers<!-- raw HTML omitted --> to guarantee mutual exclusion and
+order of operation between threads.</p>
+<p>To this end, we are going to use <em>LockAcquired</em> as a
+boolean-like variable to notify <em>lockRoutine</em> when to
+exit the loop. We&rsquo;ll also use <em>nCPUsLocked</em> as a counter
+variable to atomically increment it on every CPU, via the
+<em>InterlockedIncrement64(&nCPUsLocked)</em> statement.</p>
+<p>As a next step, we can now take care of DPCs creation. We first need
+to allocate a kernel pool via <em>ExAllocatePoolWithTag</em> of the
+size of a KDPC multiplied by the number of the running CPUs.</p>
+<p>We then run a for-loop where we initialize on every other CPU the DPC
+via the <em>KeInitializeDpc</em> function, providing the respective
+KDPC and the <em>lockRoutine</em> as a function to be executed by the
+scheduled DPC. Next, we tell which CPU has to run the DPC with a call
+to <em>KeSetTargetProcessorDpc</em> and we finally enqueue it with
+<em>KeInsertQueueDpc</em>.</p>
+<p>Once the DPC is running on the given CPU, it will execute the
+<em>lockRoutine</em> function that we have passed as an argument
+during DPC initialization, which has the following structure.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-C" data-lang="C"><span class="line"><span class="cl"><span class="kt">void</span> <span class="n">lockRoutine</span>
+</span></span><span class="line"><span class="cl"><span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Atomically increase the value of nCPUsLocked, which means that another CPU enters the nop cycle */
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">InterlockedIncrement64</span><span class="p">(</span><span class="o">&</span><span class="n">nCPUsLocked</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// spin NOP until LockAcquired flag is set ( i.e., by ReleaseLockO))
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">while</span> <span class="p">(</span><span class="nf">InterlockedCompareExchange64</span><span class="p">(</span><span class="o">&</span><span class="n">LockAcquired</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">NOP_FUNC</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Exit the NOP loop 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">InterlockedDecrement64</span><span class="p">(</span><span class="o">&</span><span class="n">nCPUsLocked</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>The lockRoutine function</p>
+</blockquote>
+<p>First, <em>InterlockedIncrement64</em> is called, so that the
+<em>nCPUsLocked</em> variable that was previously set to zero is
+now incremented to one. Since this routine will be executed by every
+other CPU, the variable will be incremented by each one and ultimately
+reach the &ldquo;total CPU-1&rdquo; value, which will force the while-loop in the
+<em>AcquireLock</em> function to exit.</p>
+<p>As a next step, <em>lockRoutine</em> employs the
+<em>InterlockedCompareExchange64</em> function to check if the value
+of <em>LockAcquired</em> is set to &ldquo;0&rdquo; or &ldquo;1&rdquo;. If it&rsquo;s 0, it will
+enter a while-loop and execute the standby <em>NOP_FUNC</em> routine,
+defined in the project&rsquo;s <!-- raw HTML omitted -->lib.asm<!-- raw HTML omitted --> resource.</p>
+<p>The purpose of this routine is to run on each other CPU that has been
+already raised at DISPATCH_LEVEL so that will prevent the execution of
+any thread that might undermine our operations.</p>
+<p>Having all the other CPUs but ours stuck on an infinite loop allows
+us to safely access the shared resource with the current IRQL value of
+DISPATCH_LEVEL.</p>
+<p>Normally, the shared resource that a rootkit wants to modify
+would be some kind of kernel table or structure like the EPROCESS
+<em>ActiveProcessLinks</em>. For the sake of this blog post, we are
+just going to demonstrate it with the following routine.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-C" data-lang="C"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">AccessResource</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">max</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">1000000000</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">DBG_TRACE</span><span class="p">(</span><span class="s">&#34;Accessing Shared Resource&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max</span> <span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">SHARED_FUNC</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><em>AccessResource</em> will in turn execute the following purposely
+pointless <em>SHARED_FUNC</em> routine one million times.</p>
+<pre tabindex="0"><code>SHARED_FUNC PROC
+    xchg rax, rbx
+    xchg rbx, rax
+    ret
+SHARED_FUNC ENDP
+END
+</code></pre><p>Running the above instructions in this very large for-loop will
+effectively render the system unusable for a few seconds thus, as
+a moral of the story, the rootkit should be swift when accessing a
+shared resource in the kernel.</p>
+<h2 id="debugging-the-rootkit">Debugging the Rootkit</h2>
+<p>In the debugger, we can now verify what we took for granted
+in the above code listings. If we place a breakpoint at the
+<em>AcquireLock</em> routine, we can inspect the KDPC as it gets
+initialized by <em>KeInitializeDpc</em>.</p>
+<pre tabindex="0"><code>Breakpoint 1 hit
+IRQL!AcquireLock:
+fffff806`1d6a1080 4883ec58        sub     rsp,58h
+...
+2: kd&gt; pct
+IRQL!AcquireLock+0x127:
+fffff806`1d6a11a7 ff156b0e0000    call    qword ptr [IRQL!_imp_KeInitializeDpc (fffff806`1d6a2018)]
+2: kd&gt; u fffff8061d6a1470
+</code></pre><p>The first parameter passed to the function is the empty KDPC
+structure.</p>
+<pre tabindex="0"><code>1: kd&gt; dt _KDPC ffffb289db9035b0
+nt!_KDPC
+   +0x000 TargetInfoAsUlong : 0
+   +0x000 Type             : 0 &#39;&#39;
+   +0x001 Importance       : 0 &#39;&#39;
+   +0x002 Number           : 0
+   +0x008 DpcListEntry     : _SINGLE_LIST_ENTRY
+   +0x010 ProcessorHistory : 0
+   +0x018 DeferredRoutine  : (null) 
+   +0x020 DeferredContext  : (null) 
+   +0x028 SystemArgument1  : (null) 
+   +0x030 SystemArgument2  : (null) 
+   +0x038 DpcData          : (null) 
+</code></pre><p>The structure gets populated once the function returns,</p>
+<pre tabindex="0"><code>1: kd&gt; t
+nt!KeInitializeDpc:
+fffff806`160e3ac0 33c0            xor     eax,eax
+1: kd&gt; pt
+nt!KeInitializeDpc+0x18:
+fffff806`160e3ad8 c3              ret
+1: kd&gt; dt _KDPC ffffb289db9035b0
+nt!_KDPC
+   +0x000 TargetInfoAsUlong : 0x113
+   +0x000 Type             : 0x13 &#39;&#39;
+   +0x001 Importance       : 0x1 &#39;&#39;
+   +0x002 Number           : 0
+   +0x008 DpcListEntry     : _SINGLE_LIST_ENTRY
+   +0x010 ProcessorHistory : 0
+   +0x018 DeferredRoutine  : 0xfffff806`1d6b1470     void  IRQL!lockRoutine+0
+   +0x020 DeferredContext  : (null) 
+   +0x028 SystemArgument1  : (null) 
+   +0x030 SystemArgument2  : (null) 
+   +0x038 DpcData          : (null) 
+</code></pre><p>The <em>DeferredRoutine</em> is our defined DPC routine, while the
+<em>Number</em> value refers to the target CPU where it is going to be
+executed, which gets populated once <em>KeSetTargetProcessorDpc</em>
+returns.</p>
+<pre tabindex="0"><code>1: kd&gt; dt _KDPC ffffb289db9038b0
+nt!_KDPC
+   +0x000 TargetInfoAsUlong : 0x5030113
+   +0x000 Type             : 0x13 &#39;&#39;
+   +0x001 Importance       : 0x1 &#39;&#39;
+   +0x002 Number           : 0x503
+   +0x008 DpcListEntry     : _SINGLE_LIST_ENTRY
+   +0x010 ProcessorHistory : 0
+   +0x018 DeferredRoutine  : 0xfffff806`1d6d1470     void  IRQL!lockRoutine+0
+   +0x020 DeferredContext  : (null) 
+   +0x028 SystemArgument1  : (null) 
+   +0x030 SystemArgument2  : (null) 
+   +0x038 DpcData          : (null)
+</code></pre><p>The resulting value is the result of the constant 0x500 plus the CPU
+index.</p>
+<!-- raw HTML omitted -->
+<p>We can also verify the enqueued DPCs through the <strong>!dpcs</strong> command.</p>
+<pre tabindex="0"><code>2: kd&gt; !dpcs
+CPU Type      KDPC       Function
+ 0: Normal  : 0xffffb289db903b50 0xfffff8061d701470 IRQL!lockRoutine
+ 1: Normal  : 0xffffb289db903b90 0xfffff8061d701470 IRQL!lockRoutine
+</code></pre><!-- raw HTML omitted -->
+<p>Nice, then we can now enable a breakpoint on <em>IRQL!NOP_FUNC</em>
+and continue execution.</p>
+<pre tabindex="0"><code>2: kd&gt; g
+Breakpoint 7 hit
+IRQL!NOP_FUNC:
+fffff806`1d691000 90              nop
+1: kd&gt; g
+Breakpoint 7 hit
+IRQL!NOP_FUNC:
+fffff806`1d691000 90              nop
+3: kd&gt; t
+Breakpoint 7 hit
+IRQL!NOP_FUNC:
+fffff806`1d691000 90              nop
+</code></pre><p>And we have proven that the NOP function is running on every other
+CPU, as intended.</p>
+<p>As a final check, we can now verify that all the other CPUs are
+executing the NOP routine while we are accessing the share resource.
+Let&rsquo;s break on <em>IRQL!AccessResource</em> and verify the IRQL level
+for all the CPUs.</p>
+<pre tabindex="0"><code>Breakpoint 6 hit
+IRQL!AccessResource:
+fffff806`1d691020 4883ec38        sub     rsp,38h
+0: kd&gt; t
+IRQL!AccessResource+0x4:
+fffff806`1d691024 c744242000000000 mov     dword ptr [rsp+20h],0
+0: kd&gt; !irql 0
+Debugger saved IRQL for processor 0x0 -- 2 (DISPATCH_LEVEL)
+0: kd&gt; !irql 1
+Debugger saved IRQL for processor 0x1 -- 2 (DISPATCH_LEVEL)
+0: kd&gt; !irql 2
+Debugger saved IRQL for processor 0x2 -- 2 (DISPATCH_LEVEL)
+0: kd&gt; !irql 3
+Debugger saved IRQL for processor 0x3 -- 2 (DISPATCH_LEVEL)
+</code></pre><div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p><a href="https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/introduction-to-synchcritsection-routines">https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/introduction-to-synchcritsection-routines</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+            </div>
+        </article>
+        <hr />
+        <div class="post-info">
+                <p>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="../../../../tags/windows.html">Windows</a></span><span class="tag"><a href="../../../../tags/kernel.html">Kernel</a></span><span class="tag"><a href="../../../../tags/irqls.html">IRQLs</a></span><span class="tag"><a href="../../../../tags/rootkits.html">rootkits</a></span>
+                </p>
+        </div>
+    </main>
+            </div>
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span style="font-size: 14px;">&copy; 2024</span>
+            <span>
+                <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" title="This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.">
+                    License
+                </a>
+            </span>
+            <span>
+                    <a href="../../../../index.xml" target="_blank" title="rss">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss">
+                            <path d="M4 11a9 9 0 0 1 9 9"></path>
+                            <path d="M4 4a16 16 0 0 1 16 16"></path>
+                            <circle cx="5" cy="19" r="1"></circle>
+                        </svg>
+                    </a>
+            </span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>
+                <h5>Illustrations by &nbsp;<a target="_blank" href="https://instagram.com/sergio_kalisiak">Sergio Kalisiak</a></h5>
+            </span>
+        </div>
+    </div>
+</footer>
+        </div>
+<script type="text/javascript" src="../../../../bundle.min.8750240a1a2b5e2e02df200915140d47eadf74d9f9510dfe046bef237f486c4542dca2cd6c82d7241a01a6baf1e05afaf2385d481144ad18c0251d56db724273.js" ></script>
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'G-18TCRTW8CL', 'auto');
+        ga('send', 'pageview');
+    </script>
+    </body>
+</html>
